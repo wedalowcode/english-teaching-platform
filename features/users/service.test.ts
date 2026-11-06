@@ -121,7 +121,7 @@ describe("createUser", () => {
   const input = {
     username: "alice",
     phone: null,
-    password: "12345678",
+    password: "Learn@2026",
   };
 
   beforeEach(() => {
@@ -133,7 +133,7 @@ describe("createUser", () => {
   it("写入数据库的是哈希密码，不是明文", async () => {
     await createUser(input);
 
-    expect(hashPassword).toHaveBeenCalledWith("12345678");
+    expect(hashPassword).toHaveBeenCalledWith("Learn@2026");
     expect(create).toHaveBeenCalledWith({
       data: {
         username: "alice",
@@ -259,6 +259,8 @@ describe("updateUser", () => {
 });
 
 describe("resetUserPassword", () => {
+  const newPassword = "Learn@2026";
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -270,9 +272,9 @@ describe("resetUserPassword", () => {
   });
 
   it("应使用哈希密码更新用户密码", async () => {
-    const result = await resetUserPassword("user-1", "12345678");
+    const result = await resetUserPassword("user-1", newPassword);
 
-    expect(hashPassword).toHaveBeenCalledWith("12345678");
+    expect(hashPassword).toHaveBeenCalledWith(newPassword);
 
     expect(update).toHaveBeenCalledWith({
       where: {
@@ -296,7 +298,7 @@ describe("resetUserPassword", () => {
       code: "P2025",
     });
 
-    const result = await resetUserPassword("missing-user", "12345678");
+    const result = await resetUserPassword("missing-user", newPassword);
 
     expect(result).toEqual({
       success: false,
@@ -311,18 +313,14 @@ describe("resetUserPassword", () => {
     update.mockRejectedValue(error);
 
     await expect(
-      resetUserPassword("user-1", "12345678")
+      resetUserPassword("user-1", newPassword)
     ).rejects.toBe(error);
   });
 
-  it("不应向调用方返回密码哈希", async () => {
-    const result = await resetUserPassword("user-1", "12345678");
+  it("传给数据库更新参数中不应出现明文密码", async () => {
+    await resetUserPassword("user-1", newPassword);
 
-    expect(result).toEqual({
-      success: true,
-    });
-
-    expect(result).not.toHaveProperty("passwordHash");
+    expect(JSON.stringify(update.mock.calls)).not.toContain(newPassword);
   });
 });
 
@@ -364,45 +362,28 @@ describe("setUserStatus", () => {
     });
   });
 
-  it("应将用户状态修改为 DISABLED", async () => {
-    const result = await setUserStatus("user-1", "DISABLED");
+  it.each(["ACTIVE", "DISABLED"] as const)(
+    "应将用户状态修改为 %s",
+    async (status) => {
+      const result = await setUserStatus("user-1", status);
 
-    expect(update).toHaveBeenCalledWith({
-      where: {
-        id: "user-1",
-      },
-      data: {
-        status: "DISABLED",
-      },
-      select: {
-        id: true,
-      },
-    });
+      expect(update).toHaveBeenCalledWith({
+        where: {
+          id: "user-1",
+        },
+        data: {
+          status,
+        },
+        select: {
+          id: true,
+        },
+      });
 
-    expect(result).toEqual({
-      success: true,
-    });
-  });
-
-  it("应将用户状态修改为 ACTIVE", async () => {
-    const result = await setUserStatus("user-1", "ACTIVE");
-
-    expect(update).toHaveBeenCalledWith({
-      where: {
-        id: "user-1",
-      },
-      data: {
-        status: "ACTIVE",
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    expect(result).toEqual({
-      success: true,
-    });
-  });
+      expect(result).toEqual({
+        success: true,
+      });
+    }
+  );
 
   it("用户不存在时应返回 NOT_FOUND", async () => {
     update.mockRejectedValue({
@@ -466,6 +447,20 @@ describe("deleteUser", () => {
       success: false,
       code: "NOT_FOUND",
       message: "用户不存在或已被删除",
+    });
+  });
+
+  it("存在关联数据时应返回 CONFLICT", async () => {
+    deleteUserMock.mockRejectedValue({
+      code: "P2003",
+    });
+
+    const result = await deleteUser("user-1");
+
+    expect(result).toEqual({
+      success: false,
+      code: "CONFLICT",
+      message: "该用户存在关联数据，无法删除，请改为停用",
     });
   });
 

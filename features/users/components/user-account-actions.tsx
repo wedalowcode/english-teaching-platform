@@ -1,16 +1,11 @@
 "use client";
 
+import { useState, useTransition } from "react";
+
 import { MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import type { UserStatus } from "@/app/generated/prisma/client";
 
 import {
   AlertDialog,
@@ -21,110 +16,140 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
+import { deleteUserAction, setUserStatusAction } from "../actions";
 import { UserResetPasswordDialog } from "./user-reset-password-dialog";
 
-import {
-  setUserStatusAction,
-  deleteUserAction,
-} from "../actions";
-
 type UserAccountActionsProps = {
-  user: {
-    id: string;
-    username: string;
-    status: "ACTIVE" | "DISABLED";
-  };
+  userId: string;
+  username: string;
+  status: UserStatus;
 };
 
 export function UserAccountActions({
-  user,
+  userId,
+  username,
+  status,
 }: UserAccountActionsProps) {
-  const nextStatus =
-    user.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
+  const isActive = status === "ACTIVE";
+  const nextStatus: UserStatus = isActive ? "DISABLED" : "ACTIVE";
 
-  const statusAction = setUserStatusAction.bind(
-    null,
-    user.id,
-    nextStatus
-  );
+  const [resetOpen, setResetOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const deleteAction = deleteUserAction.bind(
-    null,
-    user.id
-  );
+  const [deletePending, startDeleteTransition] = useTransition();
 
-  const isActive = user.status === "ACTIVE";
+  async function handleStatusChange() {
+    try {
+      const result = await setUserStatusAction(userId, nextStatus);
+
+      if (result.success) {
+        toast.success(isActive ? "账号已停用" : "账号已启用");
+      } else {
+        toast.error(result.message ?? "操作失败");
+      }
+    } catch {
+      toast.error("操作失败，请稍后重试");
+    }
+  }
+
+  function handleDelete() {
+    startDeleteTransition(async () => {
+      try {
+        const result = await deleteUserAction(userId);
+
+        if (result.success) {
+          setDeleteOpen(false);
+          toast.success("用户已删除");
+        } else {
+          toast.error(result.message ?? "删除失败");
+        }
+      } catch {
+        toast.error("删除失败，请稍后重试");
+      }
+    });
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="outline" size="sm">
-            <MoreHorizontal className="size-4" />
-            更多
-          </Button>
-        }
-      />
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+          <MoreHorizontal className="mr-1 size-4" />
+          更多
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end">
-        <UserResetPasswordDialog
-          user={user}
-          menuItem
-        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setResetOpen(true)}>
+            重置密码
+          </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        <form action={statusAction}>
-          <DropdownMenuItem
-            render={<button type="submit" className="w-full text-left" />}
-          >
+          <DropdownMenuItem onClick={handleStatusChange}>
             {isActive ? "停用账号" : "启用账号"}
           </DropdownMenuItem>
-        </form>
 
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        <AlertDialog>
-          <AlertDialogTrigger
-            render={
-              <DropdownMenuItem className="text-destructive" />
-            }
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
           >
             删除用户
-          </AlertDialogTrigger>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                确认删除用户？
-              </AlertDialogTitle>
+      <UserResetPasswordDialog
+        userId={userId}
+        username={username}
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        hideTrigger
+      />
 
-              <AlertDialogDescription>
-                即将永久删除用户「{user.username}」。
-                删除后无法恢复，请确认该用户没有需要保留的业务数据。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(next) => {
+          if (!deletePending) {
+            setDeleteOpen(next);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除用户？</AlertDialogTitle>
 
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                取消
-              </AlertDialogCancel>
+            <AlertDialogDescription>
+              即将永久删除用户「{username}」，该用户名会同时被释放。
+              删除后无法恢复，请确认该用户没有需要保留的业务数据。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-              <form action={deleteAction}>
-                <AlertDialogAction
-                  type="submit"
-                  variant="destructive"
-                >
-                  确认删除
-                </AlertDialogAction>
-              </form>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePending}>
+              取消
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deletePending}
+            >
+              {deletePending ? "正在删除..." : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

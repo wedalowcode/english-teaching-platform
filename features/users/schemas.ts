@@ -44,14 +44,9 @@ export const resetPasswordSchema = z
       .max(128, "密码不能超过 128 位"),
     confirmPassword: z.string(),
   })
-  .superRefine((data, ctx) => {
-    if (data.password !== data.confirmPassword) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["confirmPassword"],
-        message: "两次输入的密码不一致",
-      });
-    }
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "两次输入的密码不一致",
   });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -81,6 +76,7 @@ export type UpdateUserState = {
 };
 
 export type ResetPasswordState = {
+  success?: boolean;
   message?: string;
   fieldErrors?: {
     password?: string[];

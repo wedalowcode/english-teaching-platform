@@ -130,41 +130,49 @@ export async function resetUserPasswordAction(
     };
   }
 
-  revalidatePath("/admin/users");
-  redirect("/admin/users?passwordReset=1");
+  return {
+    success: true,
+    message: "密码已重置",
+  };
 }
+
+export type UserActionResult = {
+  success: boolean;
+  message?: string;
+};
 
 export async function setUserStatusAction(
   id: string,
   status: UserStatus
-) {
+): Promise<UserActionResult> {
   await requireUserAdmin();
 
   if (status !== "ACTIVE" && status !== "DISABLED") {
-    throw new Error("无效的用户状态");
+    return {
+      success: false,
+      message: "无效的用户状态",
+    };
   }
 
   const result = await setUserStatus(id, status);
 
-  if (!result.success) {
-    redirect("/admin/users?error=user-not-found");
-  }
-
   revalidatePath("/admin/users");
 
-  redirect("/admin/users?statusChanged=1");
+  return result.success
+    ? { success: true }
+    : { success: false, message: result.message };
 }
 
-export async function deleteUserAction(id: string) {
+export async function deleteUserAction(
+  id: string
+): Promise<UserActionResult> {
   await requireUserAdmin();
 
   const result = await deleteUser(id);
 
-  if (!result.success) {
-    redirect("/admin/users?error=user-not-found");
-  }
-
   revalidatePath("/admin/users");
 
-  redirect("/admin/users?deleted=1");
+  return result.success
+    ? { success: true }
+    : { success: false, message: result.message };
 }

@@ -8,7 +8,7 @@ import {
 const valid = {
   username: "Alice_01",
   phone: "13800138000",
-  password: "12345678",
+  password: "Learn@2026",
 };
 
 describe("createUserSchema", () => {
@@ -125,8 +125,8 @@ describe("用户资料校验", () => {
 describe("resetPasswordSchema", () => {
   it("有效密码应通过校验", () => {
     const result = resetPasswordSchema.safeParse({
-      password: "12345678",
-      confirmPassword: "12345678",
+      password: "Learn@2026",
+      confirmPassword: "Learn@2026",
     });
 
     expect(result.success).toBe(true);
@@ -143,8 +143,8 @@ describe("resetPasswordSchema", () => {
 
   it("两次密码不一致应校验失败", () => {
     const result = resetPasswordSchema.safeParse({
-      password: "12345678",
-      confirmPassword: "87654321",
+      password: "Learn@2026",
+      confirmPassword: "Learn@2025",
     });
 
     expect(result.success).toBe(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,50 +21,143 @@ import { resetUserPasswordAction } from "../actions";
 import type { ResetPasswordState } from "../schemas";
 
 type UserResetPasswordDialogProps = {
-  user: {
-    id: string;
-    username: string;
-  };
-  menuItem?: boolean;
+  userId: string;
+  username: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+};
+
+type ResetPasswordFormProps = {
+  userId: string;
+  onDone: () => void;
 };
 
 const initialState: ResetPasswordState = {};
 
-export function UserResetPasswordDialog({
-  user,
-  menuItem = false,
-}: UserResetPasswordDialogProps) {
-  const actionWithId = resetUserPasswordAction.bind(null, user.id);
+function ResetPasswordForm({ userId, onDone }: ResetPasswordFormProps) {
+  const actionWithId = resetUserPasswordAction.bind(null, userId);
 
-  const [state, action, pending] = useActionState(
-    actionWithId,
-    initialState
-  );
+  const [state, action, pending] = useActionState(actionWithId, initialState);
 
   const passwordError = state.fieldErrors?.password?.[0];
 
-  const confirmPasswordError =
-    state.fieldErrors?.confirmPassword?.[0];
+  const confirmPasswordError = state.fieldErrors?.confirmPassword?.[0];
+
+  useEffect(() => {
+    if (state.success) {
+      onDone();
+    }
+  }, [state.success, onDone]);
 
   return (
-    <Dialog>
-      {menuItem ? (
-        <DialogTrigger
-          render={
-            <button
-              type="button"
-              className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm outline-none hover:bg-accent"
-            />
+    <form action={action} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor={`password-${userId}`}>新密码</Label>
+
+        <Input
+          id={`password-${userId}`}
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="请输入新密码，至少 8 位"
+          aria-invalid={!!passwordError}
+          aria-describedby={
+            passwordError ? `password-error-${userId}` : undefined
           }
-        >
-          重置密码
-        </DialogTrigger>
-      ) : (
-        <DialogTrigger
-          render={
-            <Button variant="outline" size="sm" />
+          required
+        />
+
+        {passwordError && (
+          <p
+            id={`password-error-${userId}`}
+            className="text-sm text-destructive"
+          >
+            {passwordError}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`confirmPassword-${userId}`}>确认新密码</Label>
+
+        <Input
+          id={`confirmPassword-${userId}`}
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          placeholder="请再次输入新密码"
+          aria-invalid={!!confirmPasswordError}
+          aria-describedby={
+            confirmPasswordError
+              ? `confirm-password-error-${userId}`
+              : undefined
           }
-        >
+          required
+        />
+
+        {confirmPasswordError && (
+          <p
+            id={`confirm-password-error-${userId}`}
+            className="text-sm text-destructive"
+          >
+            {confirmPasswordError}
+          </p>
+        )}
+      </div>
+
+      {state.message && !state.success && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.message}
+        </p>
+      )}
+
+      <DialogFooter>
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          取消
+        </DialogClose>
+
+        <Button type="submit" disabled={pending}>
+          {pending ? "正在重置..." : "确认重置"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+export function UserResetPasswordDialog({
+  userId,
+  username,
+  open,
+  onOpenChange,
+  hideTrigger = false,
+}: UserResetPasswordDialogProps) {
+  const [innerOpen, setInnerOpen] = useState(false);
+
+  const controlled = open !== undefined;
+
+  const dialogOpen = controlled ? open : innerOpen;
+
+  const setDialogOpen = useCallback(
+    (next: boolean) => {
+      if (controlled) {
+        onOpenChange?.(next);
+      } else {
+        setInnerOpen(next);
+      }
+    },
+    [controlled, onOpenChange]
+  );
+
+  const close = useCallback(
+    () => setDialogOpen(false),
+    [setDialogOpen]
+  );
+
+  return (
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {!hideTrigger && (
+        <DialogTrigger render={<Button variant="outline" size="sm" />}>
           重置密码
         </DialogTrigger>
       )}
@@ -74,86 +167,12 @@ export function UserResetPasswordDialog({
           <DialogTitle>重置用户密码</DialogTitle>
 
           <DialogDescription>
-            正在为用户 {user.username} 重置密码。
+            正在为用户 {username} 重置密码。
             无需输入原密码，请设置新的登录密码。
           </DialogDescription>
         </DialogHeader>
 
-        <form action={action} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor={`password-${user.id}`}>新密码</Label>
-
-            <Input
-              id={`password-${user.id}`}
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="请输入新密码，至少 8 位"
-              aria-invalid={!!passwordError}
-              aria-describedby={
-                passwordError ? `password-error-${user.id}` : undefined
-              }
-              required
-            />
-
-            {passwordError && (
-              <p
-                id={`password-error-${user.id}`}
-                className="text-sm text-destructive"
-              >
-                {passwordError}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`confirmPassword-${user.id}`}>
-              确认新密码
-            </Label>
-
-            <Input
-              id={`confirmPassword-${user.id}`}
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              placeholder="请再次输入新密码"
-              aria-invalid={!!confirmPasswordError}
-              aria-describedby={
-                confirmPasswordError
-                  ? `confirm-password-error-${user.id}`
-                  : undefined
-              }
-              required
-            />
-
-            {confirmPasswordError && (
-              <p
-                id={`confirm-password-error-${user.id}`}
-                className="text-sm text-destructive"
-              >
-                {confirmPasswordError}
-              </p>
-            )}
-          </div>
-
-          {state.message && (
-            <p role="alert" className="text-sm text-destructive">
-              {state.message}
-            </p>
-          )}
-
-          <DialogFooter>
-            <DialogClose
-              render={<Button type="button" variant="outline" />}
-            >
-              取消
-            </DialogClose>
-
-            <Button type="submit" disabled={pending}>
-              {pending ? "正在重置..." : "确认重置"}
-            </Button>
-          </DialogFooter>
-        </form>
+        <ResetPasswordForm userId={userId} onDone={close} />
       </DialogContent>
     </Dialog>
   );

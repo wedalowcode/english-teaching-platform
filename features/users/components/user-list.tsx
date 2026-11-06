@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { UserStatus } from "@/app/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,27 +12,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ListPagination } from "@/components/shared/list-pagination";
-import { USER_STATUS_LABEL } from "@/features/users/constants";
+import {
+  USER_STATUS_BADGE_VARIANT,
+  USER_STATUS_LABEL,
+  formatUserDate,
+} from "@/features/users/constants";
 import { userListQuerySchema } from "@/features/users/schemas";
 import { getUserList } from "@/features/users/service";
 import { UserAccountActions } from "./user-account-actions";
 import { UserDetailDrawer } from "./user-detail-drawer";
 
 const PAGE_SIZE = 10;
-
-const STATUS_META: Record<
-  UserStatus,
-  { label: string; variant: "default" | "secondary" }
-> = {
-  ACTIVE: { label: USER_STATUS_LABEL.ACTIVE, variant: "default" },
-  DISABLED: { label: USER_STATUS_LABEL.DISABLED, variant: "secondary" },
-};
-
-const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Shanghai",
-});
 
 export type UserListSearchParams = Promise<
   Record<string, string | string[] | undefined>
@@ -50,10 +39,6 @@ export async function UserList({
   const keyword = query.keyword;
   const created = params.created === "1";
   const updated = params.updated === "1";
-  const passwordReset = params.passwordReset === "1";
-  const statusChanged = params.statusChanged === "1";
-  const deleted = params.deleted === "1";
-  const error = params.error;
 
   const { items, total, page, totalPages } = await getUserList({
     page: query.page,
@@ -72,30 +57,6 @@ export async function UserList({
       {updated && (
         <p role="status" className="text-sm text-green-600">
           用户资料修改成功
-        </p>
-      )}
-
-      {passwordReset && (
-        <p role="status" className="text-sm text-green-600">
-          用户密码重置成功
-        </p>
-      )}
-
-      {statusChanged && (
-        <p role="status" className="text-sm text-green-600">
-          用户状态修改成功
-        </p>
-      )}
-
-      {deleted && (
-        <p role="status" className="text-sm text-green-600">
-          用户删除成功
-        </p>
-      )}
-
-      {error === "user-not-found" && (
-        <p role="alert" className="text-sm text-destructive">
-          用户不存在或已被删除，请刷新列表后重试
         </p>
       )}
 
@@ -125,16 +86,18 @@ export async function UserList({
 
           <TableBody>
             {items.map((user) => {
-              const status = STATUS_META[user.status];
+              const variant = USER_STATUS_BADGE_VARIANT[user.status];
 
               return (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.phone ?? "-"}</TableCell>
                   <TableCell>
-                    <Badge variant={status.variant}>{status.label}</Badge>
+                    <Badge variant={variant}>
+                      {USER_STATUS_LABEL[user.status]}
+                    </Badge>
                   </TableCell>
-                  <TableCell>{dateFormatter.format(user.createdAt)}</TableCell>
+                  <TableCell>{formatUserDate(user.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-wrap justify-end gap-1">
                       <UserDetailDrawer user={user} />
@@ -149,7 +112,11 @@ export async function UserList({
                         编辑
                       </Link>
 
-                      <UserAccountActions user={user} />
+                      <UserAccountActions
+                        userId={user.id}
+                        username={user.username}
+                        status={user.status}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

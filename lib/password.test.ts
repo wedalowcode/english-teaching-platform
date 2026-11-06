@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from "./password";
 
 describe("password", () => {
   it("每次哈希结果不同，且不包含明文", async () => {
-    const password = "12345678";
+    const password = "Learn@2026";
     const hash1 = await hashPassword(password);
     const hash2 = await hashPassword(password);
 
@@ -16,9 +16,9 @@ describe("password", () => {
   });
 
   it("能够验证正确密码并拒绝错误密码", async () => {
-    const hash = await hashPassword("12345678");
+    const hash = await hashPassword("Learn@2026");
 
-    expect(await verifyPassword("12345678", hash)).toBe(true);
+    expect(await verifyPassword("Learn@2026", hash)).toBe(true);
     expect(await verifyPassword("wrong-password", hash)).toBe(false);
   });
 });

@@ -10,6 +10,38 @@ type UserListParams = {
   keyword: string;
 };
 
+export type UserOperationResult =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      code: "NOT_FOUND" | "USERNAME_TAKEN" | "CONFLICT";
+      message: string;
+    };
+
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+
+    return typeof code === "string" ? code : undefined;
+  }
+
+  return undefined;
+}
+
+const USER_NOT_FOUND = {
+  success: false,
+  code: "NOT_FOUND",
+  message: "用户不存在或已被删除",
+} as const;
+
+const USER_HAS_RELATIONS = {
+  success: false,
+  code: "CONFLICT",
+  message: "该用户存在关联数据，无法删除，请改为停用",
+} as const;
+
 export async function getUserList(params: UserListParams) {
   const { pageSize, keyword } = params;
 
@@ -97,20 +129,10 @@ export async function getUserById(id: string) {
   });
 }
 
-type UpdateUserResult =
-  | {
-      success: true;
-    }
-  | {
-      success: false;
-      code: "USERNAME_TAKEN" | "NOT_FOUND";
-      message: string;
-    };
-
 export async function updateUser(
   id: string,
   input: UpdateUserInput
-): Promise<UpdateUserResult> {
+): Promise<UserOperationResult> {
   try {
     await db.user.update({
       where: { id },
@@ -125,10 +147,7 @@ export async function updateUser(
 
     return { success: true };
   } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? error.code
-        : undefined;
+    const code = getErrorCode(error);
 
     if (code === "P2002") {
       return {
@@ -139,18 +158,17 @@ export async function updateUser(
     }
 
     if (code === "P2025") {
-      return {
-        success: false,
-        code: "NOT_FOUND",
-        message: "用户不存在或已被删除",
-      };
+      return USER_NOT_FOUND;
     }
 
     throw error;
   }
 }
 
-export async function resetUserPassword(id: string, password: string) {
+export async function resetUserPassword(
+  id: string,
+  password: string
+): Promise<UserOperationResult> {
   const passwordHash = await hashPassword(password);
 
   try {
@@ -165,35 +183,16 @@ export async function resetUserPassword(id: string, password: string) {
     });
 
     return {
-      success: true as const,
+      success: true,
     };
   } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? error.code
-        : undefined;
-
-    if (code === "P2025") {
-      return {
-        success: false as const,
-        code: "NOT_FOUND" as const,
-        message: "用户不存在或已被删除",
-      };
+    if (getErrorCode(error) === "P2025") {
+      return USER_NOT_FOUND;
     }
 
     throw error;
   }
 }
-
-type UserOperationResult =
-  | {
-      success: true;
-    }
-  | {
-      success: false;
-      code: "NOT_FOUND";
-      message: string;
-    };
 
 export async function setUserStatus(
   id: string,
@@ -210,17 +209,8 @@ export async function setUserStatus(
       success: true,
     };
   } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? error.code
-        : undefined;
-
-    if (code === "P2025") {
-      return {
-        success: false,
-        code: "NOT_FOUND",
-        message: "用户不存在或已被删除",
-      };
+    if (getErrorCode(error) === "P2025") {
+      return USER_NOT_FOUND;
     }
 
     throw error;
@@ -240,17 +230,14 @@ export async function deleteUser(
       success: true,
     };
   } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? error.code
-        : undefined;
+    const code = getErrorCode(error);
 
     if (code === "P2025") {
-      return {
-        success: false,
-        code: "NOT_FOUND",
-        message: "用户不存在或已被删除",
-      };
+      return USER_NOT_FOUND;
+    }
+
+    if (code === "P2003") {
+      return USER_HAS_RELATIONS;
     }
 
     throw error;
