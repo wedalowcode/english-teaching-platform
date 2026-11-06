@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createUser, getUserList, updateUser } from "./service";
+import {
+  createUser,
+  getUserById,
+  getUserList,
+  resetUserPassword,
+  updateUser,
+} from "./service";
 
 const { findMany, count, create, update, findUnique, hashPassword } =
   vi.hoisted(() => ({
@@ -215,5 +221,102 @@ describe("updateUser", () => {
     update.mockRejectedValue(error);
 
     await expect(updateUser("user-1", input)).rejects.toBe(error);
+  });
+});
+
+describe("resetUserPassword", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    hashPassword.mockResolvedValue("hashed-password");
+
+    update.mockResolvedValue({
+      id: "user-1",
+    });
+  });
+
+  it("应使用哈希密码更新用户密码", async () => {
+    const result = await resetUserPassword("user-1", "12345678");
+
+    expect(hashPassword).toHaveBeenCalledWith("12345678");
+
+    expect(update).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+      },
+      data: {
+        passwordHash: "hashed-password",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(result).toEqual({
+      success: true,
+    });
+  });
+
+  it("用户不存在时应返回 NOT_FOUND", async () => {
+    update.mockRejectedValue({
+      code: "P2025",
+    });
+
+    const result = await resetUserPassword("missing-user", "12345678");
+
+    expect(result).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+      message: "用户不存在或已被删除",
+    });
+  });
+
+  it("其他数据库异常应继续抛出", async () => {
+    const error = new Error("connection lost");
+
+    update.mockRejectedValue(error);
+
+    await expect(
+      resetUserPassword("user-1", "12345678")
+    ).rejects.toBe(error);
+  });
+
+  it("不应向调用方返回密码哈希", async () => {
+    const result = await resetUserPassword("user-1", "12345678");
+
+    expect(result).toEqual({
+      success: true,
+    });
+
+    expect(result).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("getUserById", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("查询用户时不应返回密码哈希", async () => {
+    findUnique.mockResolvedValue({
+      id: "user-1",
+      username: "alice",
+      phone: null,
+    });
+
+    await getUserById("user-1");
+
+    const args = findUnique.mock.calls[0][0];
+
+    expect(args).toEqual({
+      where: { id: "user-1" },
+      select: {
+        id: true,
+        username: true,
+        phone: true,
+      },
+    });
+
+    expect(args.select).not.toHaveProperty("passwordHash");
   });
 });

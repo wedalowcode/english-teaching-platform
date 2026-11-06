@@ -36,8 +36,28 @@ export const updateUserSchema = z.object({
   phone: phoneField,
 });
 
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "密码至少 8 位")
+      .max(128, "密码不能超过 128 位"),
+    confirmPassword: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "两次输入的密码不一致",
+      });
+    }
+  });
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export type CreateUserState = {
   message?: string;
@@ -57,6 +77,14 @@ export type UpdateUserState = {
   values?: {
     username: string;
     phone: string;
+  };
+};
+
+export type ResetPasswordState = {
+  message?: string;
+  fieldErrors?: {
+    password?: string[];
+    confirmPassword?: string[];
   };
 };
 

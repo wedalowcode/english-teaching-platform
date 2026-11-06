@@ -16,6 +16,7 @@ import { ListPagination } from "@/components/shared/list-pagination";
 import { USER_STATUS_LABEL } from "@/features/users/constants";
 import { userListQuerySchema } from "@/features/users/schemas";
 import { getUserList } from "@/features/users/service";
+import { UserResetPasswordDialog } from "./user-reset-password-dialog";
 
 const PAGE_SIZE = 10;
 
@@ -48,6 +49,7 @@ export async function UserList({
   const keyword = query.keyword;
   const created = params.created === "1";
   const updated = params.updated === "1";
+  const passwordReset = params.passwordReset === "1";
 
   const { items, total, page, totalPages } = await getUserList({
     page: query.page,
@@ -66,6 +68,12 @@ export async function UserList({
       {updated && (
         <p role="status" className="text-sm text-green-600">
           用户资料修改成功
+        </p>
+      )}
+
+      {passwordReset && (
+        <p role="status" className="text-sm text-green-600">
+          用户密码重置成功
         </p>
       )}
 
@@ -106,15 +114,19 @@ export async function UserList({
                   </TableCell>
                   <TableCell>{dateFormatter.format(user.createdAt)}</TableCell>
                   <TableCell className="text-right">
-                    <Link
-                      href={`/admin/users/${user.id}/edit`}
-                      className={buttonVariants({
-                        variant: "outline",
-                        size: "sm",
-                      })}
-                    >
-                      编辑
-                    </Link>
+                    <div className="flex justify-end gap-2">
+                      <Link
+                        href={`/admin/users/${user.id}/edit`}
+                        className={buttonVariants({
+                          variant: "outline",
+                          size: "sm",
+                        })}
+                      >
+                        编辑
+                      </Link>
+
+                      <UserResetPasswordDialog user={user} />
+                    </div>
                   </TableCell>
                 </TableRow>
               );

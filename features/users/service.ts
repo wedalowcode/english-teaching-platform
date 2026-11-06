@@ -148,3 +148,38 @@ export async function updateUser(
     throw error;
   }
 }
+
+export async function resetUserPassword(id: string, password: string) {
+  const passwordHash = await hashPassword(password);
+
+  try {
+    await db.user.update({
+      where: { id },
+      data: {
+        passwordHash,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      success: true as const,
+    };
+  } catch (error) {
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? error.code
+        : undefined;
+
+    if (code === "P2025") {
+      return {
+        success: false as const,
+        code: "NOT_FOUND" as const,
+        message: "用户不存在或已被删除",
+      };
+    }
+
+    throw error;
+  }
+}

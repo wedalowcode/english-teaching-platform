@@ -19,7 +19,7 @@ async function main() {
     const n = String(i + 1).padStart(2, "0");
 
     return {
-      username: `Demo_User_${n}`,
+      username: `demo_user_${n}`,
       passwordHash: "seed-placeholder-not-a-real-hash",
       phone: `138000000${n}`,
       status: (i + 1) % 5 === 0 ? UserStatus.DISABLED : UserStatus.ACTIVE,

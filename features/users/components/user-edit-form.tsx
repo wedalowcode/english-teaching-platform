@@ -38,6 +38,7 @@ export function UserEditForm({ user }: UserEditFormProps) {
         <Input
           id="username"
           name="username"
+          autoComplete="off"
           defaultValue={state.values?.username ?? user.username}
           aria-invalid={!!usernameError}
           aria-describedby={usernameError ? "username-error" : undefined}
@@ -57,6 +58,7 @@ export function UserEditForm({ user }: UserEditFormProps) {
         <Input
           id="phone"
           name="phone"
+          autoComplete="off"
           defaultValue={state.values?.phone ?? user.phone ?? ""}
           aria-invalid={!!phoneError}
           aria-describedby={phoneError ? "phone-error" : undefined}

@@ -6,11 +6,13 @@ import { requireUserAdmin } from "@/lib/auth-guard";
 import {
   createUserSchema,
   updateUserSchema,
+  resetPasswordSchema,
   toFieldErrors,
   type CreateUserState,
   type UpdateUserState,
+  type ResetPasswordState,
 } from "./schemas";
-import { createUser, updateUser } from "./service";
+import { createUser, updateUser, resetUserPassword } from "./service";
 
 export async function createUserAction(
   _prevState: CreateUserState,
@@ -90,4 +92,37 @@ export async function updateUserAction(
 
   revalidatePath("/admin/users");
   redirect("/admin/users?updated=1");
+}
+
+export async function resetUserPasswordAction(
+  id: string,
+  _prevState: ResetPasswordState,
+  formData: FormData
+): Promise<ResetPasswordState> {
+  await requireUserAdmin();
+
+  const values = {
+    password: String(formData.get("password") ?? ""),
+    confirmPassword: String(formData.get("confirmPassword") ?? ""),
+  };
+
+  const parsed = resetPasswordSchema.safeParse(values);
+
+  if (!parsed.success) {
+    return {
+      message: "请检查密码输入",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
+  }
+
+  const result = await resetUserPassword(id, parsed.data.password);
+
+  if (!result.success) {
+    return {
+      message: result.message,
+    };
+  }
+
+  revalidatePath("/admin/users");
+  redirect("/admin/users?passwordReset=1");
 }
