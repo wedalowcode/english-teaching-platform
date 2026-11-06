@@ -1,6 +1,7 @@
+import Link from "next/link";
 import type { UserStatus } from "@/app/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -46,6 +47,7 @@ export async function UserList({
   const query = userListQuerySchema.parse(params);
   const keyword = query.keyword;
   const created = params.created === "1";
+  const updated = params.updated === "1";
 
   const { items, total, page, totalPages } = await getUserList({
     page: query.page,
@@ -58,6 +60,12 @@ export async function UserList({
       {created && (
         <p role="status" className="text-sm text-green-600">
           用户创建成功
+        </p>
+      )}
+
+      {updated && (
+        <p role="status" className="text-sm text-green-600">
+          用户资料修改成功
         </p>
       )}
 
@@ -81,6 +89,7 @@ export async function UserList({
               <TableHead>手机号</TableHead>
               <TableHead>状态</TableHead>
               <TableHead>创建时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -96,6 +105,17 @@ export async function UserList({
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </TableCell>
                   <TableCell>{dateFormatter.format(user.createdAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      href={`/admin/users/${user.id}/edit`}
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "sm",
+                      })}
+                    >
+                      编辑
+                    </Link>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -103,7 +123,7 @@ export async function UserList({
             {items.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
                   暂无用户数据

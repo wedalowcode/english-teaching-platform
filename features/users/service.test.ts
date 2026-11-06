@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createUser, getUserList } from "./service";
+import { createUser, getUserList, updateUser } from "./service";
 
-const { findMany, count, create, hashPassword } = vi.hoisted(() => ({
-  findMany: vi.fn(),
-  count: vi.fn(),
-  create: vi.fn(),
-  hashPassword: vi.fn(),
-}));
+const { findMany, count, create, update, findUnique, hashPassword } =
+  vi.hoisted(() => ({
+    findMany: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    findUnique: vi.fn(),
+    hashPassword: vi.fn(),
+  }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({
-  db: { user: { findMany, count, create } },
+  db: { user: { findMany, count, create, update, findUnique } },
 }));
 vi.mock("@/lib/password", () => ({ hashPassword }));
 
@@ -146,5 +149,71 @@ describe("createUser", () => {
     const result = await createUser(input);
 
     expect(result).toEqual({ id: "user-1" });
+  });
+});
+
+describe("updateUser", () => {
+  const input = {
+    username: "alice",
+    phone: "13800138000",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    update.mockResolvedValue({ id: "user-1" });
+  });
+
+  it("应正确更新用户名和手机号", async () => {
+    const result = await updateUser("user-1", input);
+
+    expect(result).toEqual({ success: true });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        username: "alice",
+        phone: "13800138000",
+      },
+      select: { id: true },
+    });
+  });
+
+  it("用户名重复时应返回明确的业务错误", async () => {
+    update.mockRejectedValue({
+      code: "P2002",
+      meta: {
+        target: "User_username_key",
+      },
+    });
+
+    const result = await updateUser("user-1", input);
+
+    expect(result).toEqual({
+      success: false,
+      code: "USERNAME_TAKEN",
+      message: "用户名已存在",
+    });
+  });
+
+  it("用户不存在时应返回 NOT_FOUND", async () => {
+    update.mockRejectedValue({
+      code: "P2025",
+    });
+
+    const result = await updateUser("missing-user", input);
+
+    expect(result).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+      message: "用户不存在或已被删除",
+    });
+  });
+
+  it("其他数据库异常应继续向上抛出", async () => {
+    const error = new Error("connection lost");
+
+    update.mockRejectedValue(error);
+
+    await expect(updateUser("user-1", input)).rejects.toBe(error);
   });
 });
