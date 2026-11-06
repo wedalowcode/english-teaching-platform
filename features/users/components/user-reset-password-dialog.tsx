@@ -25,12 +25,14 @@ type UserResetPasswordDialogProps = {
     id: string;
     username: string;
   };
+  menuItem?: boolean;
 };
 
 const initialState: ResetPasswordState = {};
 
 export function UserResetPasswordDialog({
   user,
+  menuItem = false,
 }: UserResetPasswordDialogProps) {
   const actionWithId = resetUserPasswordAction.bind(null, user.id);
 
@@ -46,9 +48,26 @@ export function UserResetPasswordDialog({
 
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        重置密码
-      </DialogTrigger>
+      {menuItem ? (
+        <DialogTrigger
+          render={
+            <button
+              type="button"
+              className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm outline-none hover:bg-accent"
+            />
+          }
+        >
+          重置密码
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger
+          render={
+            <Button variant="outline" size="sm" />
+          }
+        >
+          重置密码
+        </DialogTrigger>
+      )}
 
       <DialogContent>
         <DialogHeader>

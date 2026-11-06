@@ -34,6 +34,7 @@ export async function getUserList(params: UserListParams) {
       phone: true,
       status: true,
       createdAt: true,
+      updatedAt: true,
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     skip: (page - 1) * pageSize,

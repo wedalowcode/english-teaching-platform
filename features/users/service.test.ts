@@ -100,6 +100,21 @@ describe("getUserList", () => {
     expect(args.orderBy).toEqual([{ createdAt: "desc" }, { id: "desc" }]);
     expect(args.select).not.toHaveProperty("passwordHash");
   });
+
+  it("详情抽屉所需的更新时间应包含在列表查询结果中", async () => {
+    await getUserList({ page: 1, pageSize: 10, keyword: "" });
+
+    const args = findMany.mock.calls[0][0];
+
+    expect(args.select).toEqual({
+      id: true,
+      username: true,
+      phone: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    });
+  });
 });
 
 describe("createUser", () => {

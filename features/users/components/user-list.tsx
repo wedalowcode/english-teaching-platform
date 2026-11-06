@@ -17,7 +17,7 @@ import { USER_STATUS_LABEL } from "@/features/users/constants";
 import { userListQuerySchema } from "@/features/users/schemas";
 import { getUserList } from "@/features/users/service";
 import { UserAccountActions } from "./user-account-actions";
-import { UserResetPasswordDialog } from "./user-reset-password-dialog";
+import { UserDetailDrawer } from "./user-detail-drawer";
 
 const PAGE_SIZE = 10;
 
@@ -136,7 +136,9 @@ export async function UserList({
                   </TableCell>
                   <TableCell>{dateFormatter.format(user.createdAt)}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <UserDetailDrawer user={user} />
+
                       <Link
                         href={`/admin/users/${user.id}/edit`}
                         className={buttonVariants({
@@ -146,8 +148,6 @@ export async function UserList({
                       >
                         编辑
                       </Link>
-
-                      <UserResetPasswordDialog user={user} />
 
                       <UserAccountActions user={user} />
                     </div>
