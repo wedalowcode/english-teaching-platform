@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import type { Prisma } from "@/app/generated/prisma/client";
+import type { Prisma, UserStatus } from "@/app/generated/prisma/client";
 import { hashPassword } from "@/lib/password";
 import type { CreateUserInput, UpdateUserInput } from "./schemas";
 type UserListParams = {
@@ -176,6 +176,78 @@ export async function resetUserPassword(id: string, password: string) {
       return {
         success: false as const,
         code: "NOT_FOUND" as const,
+        message: "用户不存在或已被删除",
+      };
+    }
+
+    throw error;
+  }
+}
+
+type UserOperationResult =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      code: "NOT_FOUND";
+      message: string;
+    };
+
+export async function setUserStatus(
+  id: string,
+  status: UserStatus
+): Promise<UserOperationResult> {
+  try {
+    await db.user.update({
+      where: { id },
+      data: { status },
+      select: { id: true },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? error.code
+        : undefined;
+
+    if (code === "P2025") {
+      return {
+        success: false,
+        code: "NOT_FOUND",
+        message: "用户不存在或已被删除",
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function deleteUser(
+  id: string
+): Promise<UserOperationResult> {
+  try {
+    await db.user.delete({
+      where: { id },
+      select: { id: true },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? error.code
+        : undefined;
+
+    if (code === "P2025") {
+      return {
+        success: false,
+        code: "NOT_FOUND",
         message: "用户不存在或已被删除",
       };
     }

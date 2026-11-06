@@ -16,6 +16,7 @@ import { ListPagination } from "@/components/shared/list-pagination";
 import { USER_STATUS_LABEL } from "@/features/users/constants";
 import { userListQuerySchema } from "@/features/users/schemas";
 import { getUserList } from "@/features/users/service";
+import { UserAccountActions } from "./user-account-actions";
 import { UserResetPasswordDialog } from "./user-reset-password-dialog";
 
 const PAGE_SIZE = 10;
@@ -50,6 +51,9 @@ export async function UserList({
   const created = params.created === "1";
   const updated = params.updated === "1";
   const passwordReset = params.passwordReset === "1";
+  const statusChanged = params.statusChanged === "1";
+  const deleted = params.deleted === "1";
+  const error = params.error;
 
   const { items, total, page, totalPages } = await getUserList({
     page: query.page,
@@ -74,6 +78,24 @@ export async function UserList({
       {passwordReset && (
         <p role="status" className="text-sm text-green-600">
           用户密码重置成功
+        </p>
+      )}
+
+      {statusChanged && (
+        <p role="status" className="text-sm text-green-600">
+          用户状态修改成功
+        </p>
+      )}
+
+      {deleted && (
+        <p role="status" className="text-sm text-green-600">
+          用户删除成功
+        </p>
+      )}
+
+      {error === "user-not-found" && (
+        <p role="alert" className="text-sm text-destructive">
+          用户不存在或已被删除，请刷新列表后重试
         </p>
       )}
 
@@ -114,7 +136,7 @@ export async function UserList({
                   </TableCell>
                   <TableCell>{dateFormatter.format(user.createdAt)}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Link
                         href={`/admin/users/${user.id}/edit`}
                         className={buttonVariants({
@@ -126,6 +148,8 @@ export async function UserList({
                       </Link>
 
                       <UserResetPasswordDialog user={user} />
+
+                      <UserAccountActions user={user} />
                     </div>
                   </TableCell>
                 </TableRow>

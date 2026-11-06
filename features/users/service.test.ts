@@ -1,25 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createUser,
+  deleteUser,
   getUserById,
   getUserList,
   resetUserPassword,
+  setUserStatus,
   updateUser,
 } from "./service";
 
-const { findMany, count, create, update, findUnique, hashPassword } =
-  vi.hoisted(() => ({
-    findMany: vi.fn(),
-    count: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    findUnique: vi.fn(),
-    hashPassword: vi.fn(),
-  }));
+const {
+  findMany,
+  count,
+  create,
+  update,
+  findUnique,
+  deleteUserMock,
+  hashPassword,
+} = vi.hoisted(() => ({
+  findMany: vi.fn(),
+  count: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  findUnique: vi.fn(),
+  deleteUserMock: vi.fn(),
+  hashPassword: vi.fn(),
+}));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({
-  db: { user: { findMany, count, create, update, findUnique } },
+  db: {
+    user: {
+      findMany,
+      count,
+      create,
+      update,
+      findUnique,
+      delete: deleteUserMock,
+    },
+  },
 }));
 vi.mock("@/lib/password", () => ({ hashPassword }));
 
@@ -318,5 +337,128 @@ describe("getUserById", () => {
     });
 
     expect(args.select).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("setUserStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    update.mockResolvedValue({
+      id: "user-1",
+    });
+  });
+
+  it("应将用户状态修改为 DISABLED", async () => {
+    const result = await setUserStatus("user-1", "DISABLED");
+
+    expect(update).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+      },
+      data: {
+        status: "DISABLED",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(result).toEqual({
+      success: true,
+    });
+  });
+
+  it("应将用户状态修改为 ACTIVE", async () => {
+    const result = await setUserStatus("user-1", "ACTIVE");
+
+    expect(update).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+      },
+      data: {
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(result).toEqual({
+      success: true,
+    });
+  });
+
+  it("用户不存在时应返回 NOT_FOUND", async () => {
+    update.mockRejectedValue({
+      code: "P2025",
+    });
+
+    const result = await setUserStatus("missing-user", "DISABLED");
+
+    expect(result).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+      message: "用户不存在或已被删除",
+    });
+  });
+
+  it("其他数据库异常应继续抛出", async () => {
+    const error = new Error("connection lost");
+
+    update.mockRejectedValue(error);
+
+    await expect(
+      setUserStatus("user-1", "DISABLED")
+    ).rejects.toBe(error);
+  });
+});
+
+describe("deleteUser", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    deleteUserMock.mockResolvedValue({
+      id: "user-1",
+    });
+  });
+
+  it("应成功删除指定用户", async () => {
+    const result = await deleteUser("user-1");
+
+    expect(deleteUserMock).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(result).toEqual({
+      success: true,
+    });
+  });
+
+  it("用户不存在时应返回 NOT_FOUND", async () => {
+    deleteUserMock.mockRejectedValue({
+      code: "P2025",
+    });
+
+    const result = await deleteUser("missing-user");
+
+    expect(result).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+      message: "用户不存在或已被删除",
+    });
+  });
+
+  it("其他数据库异常应继续抛出", async () => {
+    const error = new Error("connection lost");
+
+    deleteUserMock.mockRejectedValue(error);
+
+    await expect(deleteUser("user-1")).rejects.toBe(error);
   });
 });

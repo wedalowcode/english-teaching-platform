@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUserAdmin } from "@/lib/auth-guard";
+import type { UserStatus } from "@/app/generated/prisma/client";
 import {
   createUserSchema,
   updateUserSchema,
@@ -12,7 +13,13 @@ import {
   type UpdateUserState,
   type ResetPasswordState,
 } from "./schemas";
-import { createUser, updateUser, resetUserPassword } from "./service";
+import {
+  createUser,
+  deleteUser,
+  resetUserPassword,
+  setUserStatus,
+  updateUser,
+} from "./service";
 
 export async function createUserAction(
   _prevState: CreateUserState,
@@ -125,4 +132,39 @@ export async function resetUserPasswordAction(
 
   revalidatePath("/admin/users");
   redirect("/admin/users?passwordReset=1");
+}
+
+export async function setUserStatusAction(
+  id: string,
+  status: UserStatus
+) {
+  await requireUserAdmin();
+
+  if (status !== "ACTIVE" && status !== "DISABLED") {
+    throw new Error("无效的用户状态");
+  }
+
+  const result = await setUserStatus(id, status);
+
+  if (!result.success) {
+    redirect("/admin/users?error=user-not-found");
+  }
+
+  revalidatePath("/admin/users");
+
+  redirect("/admin/users?statusChanged=1");
+}
+
+export async function deleteUserAction(id: string) {
+  await requireUserAdmin();
+
+  const result = await deleteUser(id);
+
+  if (!result.success) {
+    redirect("/admin/users?error=user-not-found");
+  }
+
+  revalidatePath("/admin/users");
+
+  redirect("/admin/users?deleted=1");
 }
