@@ -2,7 +2,8 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import type { Prisma } from "@/app/generated/prisma/client";
-
+import { hashPassword } from "@/lib/password";
+import type { CreateUserInput } from "./schemas";
 type UserListParams = {
   page: number;
   pageSize: number;
@@ -40,4 +41,46 @@ export async function getUserList(params: UserListParams) {
   });
 
   return { items, total, page, pageSize, totalPages };
+}
+
+export async function createUser(input: CreateUserInput) {
+  const passwordHash = await hashPassword(input.password);
+
+  try {
+    return await db.user.create({
+      data: {
+        username: input.username,
+        phone: input.phone,
+        passwordHash,
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      const target =
+        "meta" in error &&
+        error.meta &&
+        typeof error.meta === "object" &&
+        "target" in error.meta
+          ? error.meta.target
+          : undefined;
+
+      const fields = Array.isArray(target)
+        ? target
+        : typeof target === "string"
+          ? [target]
+          : [];
+
+      if (fields.includes("username")) {
+        throw new Error("用户名已存在");
+      }
+    }
+
+    throw error;
+  }
 }

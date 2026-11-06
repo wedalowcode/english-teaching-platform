@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 
 export default async function Home() {
-  const userCount = await db.user.count();
+  //const userCount = await db.user.count();
 
   return (
     <main className="p-10">
@@ -14,7 +14,7 @@ export default async function Home() {
       </p>
 
       <p className="mt-2">
-        当前用户数量：{userCount}
+        当前用户数量：{0}
       </p>
     </main>
   );

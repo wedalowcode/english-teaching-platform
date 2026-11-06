@@ -1,0 +1,146 @@
+import type { UserStatus } from "@/app/generated/prisma/client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ListPagination } from "@/components/shared/list-pagination";
+import { USER_STATUS_LABEL } from "@/features/users/constants";
+import { userListQuerySchema } from "@/features/users/schemas";
+import { getUserList } from "@/features/users/service";
+
+const PAGE_SIZE = 10;
+
+const STATUS_META: Record<
+  UserStatus,
+  { label: string; variant: "default" | "secondary" }
+> = {
+  ACTIVE: { label: USER_STATUS_LABEL.ACTIVE, variant: "default" },
+  DISABLED: { label: USER_STATUS_LABEL.DISABLED, variant: "secondary" },
+};
+
+const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Shanghai",
+});
+
+export type UserListSearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>;
+
+export async function UserList({
+  searchParams,
+}: {
+  searchParams: UserListSearchParams;
+}) {
+  const params = await searchParams;
+
+  const query = userListQuerySchema.parse(params);
+  const keyword = query.keyword;
+  const created = params.created === "1";
+
+  const { items, total, page, totalPages } = await getUserList({
+    page: query.page,
+    pageSize: PAGE_SIZE,
+    keyword,
+  });
+
+  return (
+    <div className="space-y-4">
+      {created && (
+        <p role="status" className="text-sm text-green-600">
+          用户创建成功
+        </p>
+      )}
+
+      <form className="flex gap-2">
+        <Input
+          name="keyword"
+          defaultValue={keyword}
+          placeholder="搜索用户名或手机号"
+          className="max-w-xs"
+        />
+        <Button type="submit">搜索</Button>
+      </form>
+
+      <p className="text-sm text-muted-foreground">共 {total} 位用户</p>
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>用户名</TableHead>
+              <TableHead>手机号</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>创建时间</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {items.map((user) => {
+              const status = STATUS_META[user.status];
+
+              return (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>{user.phone ?? "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                  </TableCell>
+                  <TableCell>{dateFormatter.format(user.createdAt)}</TableCell>
+                </TableRow>
+              );
+            })}
+
+            {items.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  暂无用户数据
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <ListPagination
+        page={page}
+        totalPages={totalPages}
+        basePath="/admin/users"
+        params={{ keyword }}
+      />
+    </div>
+  );
+}
+
+export function UserListSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-9 w-16" />
+      </div>
+
+      <Skeleton className="h-4 w-24" />
+
+      <div className="space-y-2 rounded-md border p-4">
+        {Array.from({ length: PAGE_SIZE }, (_, i) => (
+          <Skeleton key={i} className="h-6 w-full" />
+        ))}
+      </div>
+
+      <Skeleton className="h-8 w-48" />
+    </div>
+  );
+}

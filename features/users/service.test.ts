@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createUser, getUserList } from "./service";
 
-const { findMany, count } = vi.hoisted(() => ({
+const { findMany, count, create, hashPassword } = vi.hoisted(() => ({
   findMany: vi.fn(),
   count: vi.fn(),
+  create: vi.fn(),
+  hashPassword: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({
-  db: { user: { findMany, count } },
+  db: { user: { findMany, count, create } },
 }));
-
-import { getUserList } from "./service";
+vi.mock("@/lib/password", () => ({ hashPassword }));
 
 describe("getUserList", () => {
   beforeEach(() => {
@@ -26,7 +28,7 @@ describe("getUserList", () => {
     expect(result.totalPages).toBe(3);
     expect(result.page).toBe(2);
     expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 10, take: 10 }),
+      expect.objectContaining({ skip: 10, take: 10 })
     );
   });
 
@@ -35,7 +37,7 @@ describe("getUserList", () => {
 
     expect(result.page).toBe(3);
     expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 20, take: 10 }),
+      expect.objectContaining({ skip: 20, take: 10 })
     );
   });
 
@@ -50,7 +52,7 @@ describe("getUserList", () => {
             { phone: { contains: "demo" } },
           ],
         },
-      }),
+      })
     );
   });
 
@@ -58,7 +60,7 @@ describe("getUserList", () => {
     await getUserList({ page: 1, pageSize: 10, keyword: "" });
 
     expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({ where: {} })
     );
   });
 
@@ -69,5 +71,80 @@ describe("getUserList", () => {
 
     expect(args.orderBy).toEqual([{ createdAt: "desc" }, { id: "desc" }]);
     expect(args.select).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("createUser", () => {
+  const input = {
+    username: "alice",
+    phone: null,
+    password: "12345678",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hashPassword.mockResolvedValue("hashed-password");
+    create.mockResolvedValue({ id: "user-1" });
+  });
+
+  it("写入数据库的是哈希密码，不是明文", async () => {
+    await createUser(input);
+
+    expect(hashPassword).toHaveBeenCalledWith("12345678");
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        username: "alice",
+        phone: null,
+        passwordHash: "hashed-password",
+      },
+      select: { id: true },
+    });
+  });
+
+  it("空手机号以 null 写入", async () => {
+    await createUser(input);
+
+    const args = create.mock.calls[0][0];
+
+    expect(args.data.phone).toBeNull();
+  });
+
+  it("有手机号时原样保存", async () => {
+    await createUser({ ...input, phone: "13800138000" });
+
+    const args = create.mock.calls[0][0];
+
+    expect(args.data.phone).toBe("13800138000");
+  });
+
+  it("用户名唯一冲突时提示用户名已存在", async () => {
+    create.mockRejectedValue({
+      code: "P2002",
+      meta: { target: ["username"] },
+    });
+
+    await expect(createUser(input)).rejects.toThrow("用户名已存在");
+  });
+
+  it("冲突字段不是用户名时继续抛出原错误", async () => {
+    const error = { code: "P2002", meta: { target: ["phone"] } };
+
+    create.mockRejectedValue(error);
+
+    await expect(createUser(input)).rejects.toBe(error);
+  });
+
+  it("其他数据库错误继续抛出", async () => {
+    const error = new Error("connection lost");
+
+    create.mockRejectedValue(error);
+
+    await expect(createUser(input)).rejects.toBe(error);
+  });
+
+  it("不向调用方返回 passwordHash", async () => {
+    const result = await createUser(input);
+
+    expect(result).toEqual({ id: "user-1" });
   });
 });
