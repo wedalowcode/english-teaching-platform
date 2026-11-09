@@ -126,7 +126,6 @@ export async function RoleList({
                 <TableCell className="text-right">
                   <RoleAccountActions
                     roleId={role.id}
-                    roleName={role.name}
                     isActive={role.isActive}
                     isSystem={role.isSystem}
                   />

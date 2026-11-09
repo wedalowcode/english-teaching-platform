@@ -5,12 +5,10 @@ import {
   getUserById,
   getUserList,
   getRoleOptions,
-  getRoleUserCandidates,
   resetUserPassword,
   setUserStatus,
   updateUser,
   updateUserRoles,
-  updateRoleUsers,
 } from "./service";
 
 const {
@@ -26,8 +24,6 @@ const {
   accountCreate,
   transaction,
   roleFindMany,
-  roleFindUnique,
-  userFindMany,
   userRoleDeleteMany,
   userRoleCreateMany,
 } = vi.hoisted(() => ({
@@ -43,8 +39,6 @@ const {
   accountCreate: vi.fn(),
   transaction: vi.fn(),
   roleFindMany: vi.fn(),
-  roleFindUnique: vi.fn(),
-  userFindMany: vi.fn(),
   userRoleDeleteMany: vi.fn(),
   userRoleCreateMany: vi.fn(),
 }));
@@ -67,7 +61,6 @@ vi.mock("@/lib/db", () => ({
     },
     role: {
       findMany: roleFindMany,
-      findUnique: roleFindUnique,
     },
     userRole: {
       deleteMany: userRoleDeleteMany,
@@ -584,8 +577,8 @@ describe("updateUserRoles", () => {
 
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) =>
       callback({
-        user: { findUnique, findMany: userFindMany },
-        role: { findMany: roleFindMany, findUnique: roleFindUnique },
+        user: { findUnique },
+        role: { findMany: roleFindMany },
         userRole: {
           deleteMany: userRoleDeleteMany,
           createMany: userRoleCreateMany,
@@ -694,159 +687,5 @@ describe("getRoleOptions", () => {
       },
       orderBy: [{ isSystem: "desc" }, { name: "asc" }],
     });
-  });
-});
-
-describe("getRoleUserCandidates", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    roleFindUnique.mockResolvedValue({
-      id: "role-1",
-      userRoles: [{ userId: "user-1" }],
-    });
-
-    findMany.mockResolvedValue([
-      { id: "user-1", name: "管理员", username: "admin", email: "a@x.com" },
-    ]);
-  });
-
-  it("应返回已分配用户 ID 与候选用户", async () => {
-    const result = await getRoleUserCandidates("role-1", "");
-
-    expect(result).toEqual({
-      assignedUserIds: ["user-1"],
-      users: [
-        { id: "user-1", name: "管理员", username: "admin", email: "a@x.com" },
-      ],
-    });
-  });
-
-  it("有关键词时应按姓名、用户名或邮箱搜索", async () => {
-    await getRoleUserCandidates("role-1", "demo");
-
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          OR: [
-            { name: { contains: "demo", mode: "insensitive" } },
-            { username: { contains: "demo", mode: "insensitive" } },
-            { email: { contains: "demo", mode: "insensitive" } },
-          ],
-        },
-      })
-    );
-  });
-
-  it("候选用户最多返回 30 条", async () => {
-    await getRoleUserCandidates("role-1", "");
-
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 30 })
-    );
-  });
-
-  it("角色不存在时应返回 null", async () => {
-    roleFindUnique.mockResolvedValue(null);
-
-    const result = await getRoleUserCandidates("missing", "");
-
-    expect(result).toBeNull();
-  });
-});
-
-describe("updateRoleUsers", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    transaction.mockImplementation(async (callback: (tx: unknown) => unknown) =>
-      callback({
-        user: { findUnique, findMany: userFindMany },
-        role: { findMany: roleFindMany, findUnique: roleFindUnique },
-        userRole: {
-          deleteMany: userRoleDeleteMany,
-          createMany: userRoleCreateMany,
-        },
-      })
-    );
-
-    roleFindUnique.mockResolvedValue({ id: "role-1" });
-
-    userFindMany.mockImplementation(async (args: {
-      where?: { id?: { in?: string[] } };
-    }) => {
-      const allUsers = [{ id: "user-1" }, { id: "user-2" }];
-      const inIds = args?.where?.id?.in;
-
-      return inIds
-        ? allUsers.filter((user) => inIds.includes(user.id))
-        : allUsers;
-    });
-
-    userRoleDeleteMany.mockResolvedValue({ count: 0 });
-    userRoleCreateMany.mockResolvedValue({ count: 2 });
-  });
-
-  it("应先删除旧关联再创建新关联", async () => {
-    const result = await updateRoleUsers("role-1", ["user-1", "user-2"]);
-
-    expect(result).toEqual({ success: true });
-
-    expect(userRoleDeleteMany).toHaveBeenCalledWith({
-      where: { roleId: "role-1" },
-    });
-
-    expect(userRoleCreateMany).toHaveBeenCalledWith({
-      data: [
-        { userId: "user-1", roleId: "role-1" },
-        { userId: "user-2", roleId: "role-1" },
-      ],
-    });
-  });
-
-  it("重复用户应去重后写入", async () => {
-    await updateRoleUsers("role-1", ["user-1", "user-1"]);
-
-    expect(userRoleCreateMany).toHaveBeenCalledWith({
-      data: [{ userId: "user-1", roleId: "role-1" }],
-    });
-  });
-
-  it("空数组应只删除旧关联，不创建新关联", async () => {
-    const result = await updateRoleUsers("role-1", []);
-
-    expect(result).toEqual({ success: true });
-
-    expect(userRoleDeleteMany).toHaveBeenCalledWith({
-      where: { roleId: "role-1" },
-    });
-
-    expect(userRoleCreateMany).not.toHaveBeenCalled();
-  });
-
-  it("角色不存在时应返回失败且不修改关联", async () => {
-    roleFindUnique.mockResolvedValue(null);
-
-    const result = await updateRoleUsers("missing-role", ["user-1"]);
-
-    expect(result).toEqual({
-      success: false,
-      message: "角色不存在",
-    });
-
-    expect(userRoleDeleteMany).not.toHaveBeenCalled();
-    expect(userRoleCreateMany).not.toHaveBeenCalled();
-  });
-
-  it("存在无效用户时应返回失败且不修改关联", async () => {
-    const result = await updateRoleUsers("role-1", ["user-1", "user-x"]);
-
-    expect(result).toEqual({
-      success: false,
-      message: "存在无效用户",
-    });
-
-    expect(userRoleDeleteMany).not.toHaveBeenCalled();
-    expect(userRoleCreateMany).not.toHaveBeenCalled();
   });
 });

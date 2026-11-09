@@ -199,3 +199,157 @@ export async function setRoleStatus(
 
   return { success: true };
 }
+
+type RoleUsersParams = {
+  roleId: string;
+  page: number;
+  pageSize: number;
+  keyword: string;
+};
+
+export async function getRoleUsers(params: RoleUsersParams) {
+  const { roleId, pageSize, keyword } = params;
+
+  const role = await getRoleById(roleId);
+
+  if (!role) {
+    return null;
+  }
+
+  const where: Prisma.UserWhereInput = {
+    userRoles: {
+      some: { roleId },
+    },
+    ...(keyword
+      ? {
+          OR: [
+            { name: { contains: keyword, mode: "insensitive" } },
+            { username: { contains: keyword, mode: "insensitive" } },
+            { email: { contains: keyword, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const total = await db.user.count({ where });
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const currentPage = Math.min(Math.max(1, params.page), totalPages);
+
+  const items = await db.user.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      email: true,
+      phone: true,
+      status: true,
+      createdAt: true,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (currentPage - 1) * pageSize,
+    take: pageSize,
+  });
+
+  return {
+    role,
+    items,
+    total,
+    page: currentPage,
+    totalPages,
+  };
+}
+
+export async function getAvailableRoleUsers(params: RoleUsersParams) {
+  const { roleId, pageSize, keyword } = params;
+
+  const where: Prisma.UserWhereInput = {
+    userRoles: {
+      none: { roleId },
+    },
+    ...(keyword
+      ? {
+          OR: [
+            { name: { contains: keyword, mode: "insensitive" } },
+            { username: { contains: keyword, mode: "insensitive" } },
+            { email: { contains: keyword, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const total = await db.user.count({ where });
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const page = Math.min(Math.max(1, params.page), totalPages);
+
+  const items = await db.user.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      email: true,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+
+  return {
+    items,
+    total,
+    page,
+    totalPages,
+  };
+}
+
+export async function addUserToRole(roleId: string, userId: string) {
+  const [role, user] = await Promise.all([
+    db.role.findUnique({
+      where: { id: roleId },
+      select: { id: true },
+    }),
+    db.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!role || !user) {
+    return {
+      success: false as const,
+      message: "角色或用户不存在",
+    };
+  }
+
+  await db.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId,
+        roleId,
+      },
+    },
+    update: {},
+    create: {
+      userId,
+      roleId,
+    },
+  });
+
+  return { success: true as const };
+}
+
+export async function removeUserFromRole(roleId: string, userId: string) {
+  await db.userRole.deleteMany({
+    where: {
+      roleId,
+      userId,
+    },
+  });
+
+  return { success: true as const };
+}

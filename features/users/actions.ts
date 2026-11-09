@@ -9,7 +9,6 @@ import {
   updateUserSchema,
   resetPasswordSchema,
   userRoleAssignmentSchema,
-  roleUserAssignmentSchema,
   toFieldErrors,
   type CreateUserState,
   type UpdateUserState,
@@ -22,8 +21,6 @@ import {
   setUserStatus,
   updateUser,
   updateUserRoles,
-  getRoleUserCandidates,
-  updateRoleUsers,
 } from "./service";
 
 export async function createUserAction(
@@ -211,37 +208,6 @@ export async function updateUserRolesAction(
   }
 
   const result = await updateUserRoles(userId, parsed.data.roleIds);
-
-  revalidatePath("/admin/users");
-  revalidatePath("/admin/roles");
-
-  return result;
-}
-
-export async function getRoleUserCandidatesAction(
-  roleId: string,
-  keyword: string
-) {
-  await requireUserAdmin();
-
-  return getRoleUserCandidates(roleId, keyword.trim().slice(0, 50));
-}
-
-export async function updateRoleUsersAction(
-  roleId: string,
-  formData: FormData
-) {
-  await requireUserAdmin();
-
-  const parsed = roleUserAssignmentSchema.safeParse({
-    userIds: formData.getAll("userIds").map(String),
-  });
-
-  if (!parsed.success) {
-    return { success: false as const, message: "用户数据格式不正确" };
-  }
-
-  const result = await updateRoleUsers(roleId, parsed.data.userIds);
 
   revalidatePath("/admin/users");
   revalidatePath("/admin/roles");

@@ -5,6 +5,11 @@ export const roleListQuerySchema = z.object({
   keyword: z.string().trim().max(50).catch(""),
 });
 
+export const roleUsersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).catch(1),
+  keyword: z.string().trim().max(50).catch(""),
+});
+
 const roleCodeField = z
   .string()
   .trim()

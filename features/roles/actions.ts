@@ -12,7 +12,13 @@ import {
   type RoleFormState,
 } from "./schemas";
 
-import { createRole, setRoleStatus, updateRole } from "./service";
+import {
+  addUserToRole,
+  createRole,
+  removeUserFromRole,
+  setRoleStatus,
+  updateRole,
+} from "./service";
 
 export type RoleActionResult = {
   success: boolean;
@@ -111,4 +117,48 @@ export async function setRoleStatusAction(
   return result.success
     ? { success: true }
     : { success: false, message: result.message };
+}
+
+export async function addUserToRoleAction(
+  roleId: string,
+  userId: string
+): Promise<RoleActionResult> {
+  await requireUserAdmin();
+
+  if (!roleId || !userId) {
+    return {
+      success: false,
+      message: "参数不正确",
+    };
+  }
+
+  const result = await addUserToRole(roleId, userId);
+
+  revalidatePath(`/admin/roles/${roleId}/users`);
+  revalidatePath("/admin/roles");
+  revalidatePath("/admin/users");
+
+  return result;
+}
+
+export async function removeUserFromRoleAction(
+  roleId: string,
+  userId: string
+): Promise<RoleActionResult> {
+  await requireUserAdmin();
+
+  if (!roleId || !userId) {
+    return {
+      success: false,
+      message: "参数不正确",
+    };
+  }
+
+  const result = await removeUserFromRole(roleId, userId);
+
+  revalidatePath(`/admin/roles/${roleId}/users`);
+  revalidatePath("/admin/roles");
+  revalidatePath("/admin/users");
+
+  return result;
 }
