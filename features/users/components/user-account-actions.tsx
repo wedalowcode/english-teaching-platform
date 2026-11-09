@@ -28,23 +28,36 @@ import {
 
 import { deleteUserAction, setUserStatusAction } from "../actions";
 import { UserResetPasswordDialog } from "./user-reset-password-dialog";
+import { UserRoleAssignmentSheet } from "./user-role-assignment-sheet";
+
+type RoleOption = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+};
 
 type UserAccountActionsProps = {
   userId: string;
   username: string;
   status: UserStatus;
+  roles: RoleOption[];
+  assignedRoleIds: string[];
 };
 
 export function UserAccountActions({
   userId,
   username,
   status,
+  roles,
+  assignedRoleIds,
 }: UserAccountActionsProps) {
   const isActive = status === "ACTIVE";
   const nextStatus: UserStatus = isActive ? "DISABLED" : "ACTIVE";
 
   const [resetOpen, setResetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
 
   const [deletePending, startDeleteTransition] = useTransition();
 
@@ -92,6 +105,10 @@ export function UserAccountActions({
             重置密码
           </DropdownMenuItem>
 
+          <DropdownMenuItem onClick={() => setRoleOpen(true)}>
+            分配角色
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={handleStatusChange}>
@@ -115,6 +132,15 @@ export function UserAccountActions({
         open={resetOpen}
         onOpenChange={setResetOpen}
         hideTrigger
+      />
+
+      <UserRoleAssignmentSheet
+        open={roleOpen}
+        onOpenChange={setRoleOpen}
+        userId={userId}
+        username={username}
+        roles={roles}
+        assignedRoleIds={assignedRoleIds}
       />
 
       <AlertDialog

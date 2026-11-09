@@ -105,6 +105,14 @@ export type ResetPasswordState = {
   };
 };
 
+export const userRoleAssignmentSchema = z.object({
+  roleIds: z.array(z.string().min(1)).max(50),
+});
+
+export const roleUserAssignmentSchema = z.object({
+  userIds: z.array(z.string().min(1)).max(5000),
+});
+
 export function toFieldErrors(
   error: z.ZodError
 ): Record<string, string[]> {

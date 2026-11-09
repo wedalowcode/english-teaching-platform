@@ -17,7 +17,7 @@ import { ListPagination } from "@/components/shared/list-pagination";
 
 import { roleListQuerySchema } from "@/features/roles/schemas";
 import { getRoleList } from "@/features/roles/service";
-import { RoleStatusAction } from "./role-status-action";
+import { RoleAccountActions } from "./role-account-actions";
 
 const PAGE_SIZE = 10;
 
@@ -124,23 +124,12 @@ export async function RoleList({
                 </TableCell>
 
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Link
-                      href={`/admin/roles/${role.id}/edit`}
-                      className={buttonVariants({
-                        variant: "outline",
-                        size: "sm",
-                      })}
-                    >
-                      编辑
-                    </Link>
-
-                    <RoleStatusAction
-                      roleId={role.id}
-                      isActive={role.isActive}
-                      isSystem={role.isSystem}
-                    />
-                  </div>
+                  <RoleAccountActions
+                    roleId={role.id}
+                    roleName={role.name}
+                    isActive={role.isActive}
+                    isSystem={role.isSystem}
+                  />
                 </TableCell>
               </TableRow>
             ))}

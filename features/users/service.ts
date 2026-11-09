@@ -93,6 +93,11 @@ export async function getUserList(params: UserListParams) {
       status: true,
       createdAt: true,
       updatedAt: true,
+      userRoles: {
+        select: {
+          roleId: true,
+        },
+      },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     skip: (page - 1) * pageSize,
@@ -153,6 +158,141 @@ export async function getUserById(id: string) {
       username: true,
       phone: true,
     },
+  });
+}
+
+export async function getRoleOptions() {
+  return db.role.findMany({
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      description: true,
+    },
+    orderBy: [{ isSystem: "desc" }, { name: "asc" }],
+  });
+}
+
+export async function updateUserRoles(userId: string, roleIds: string[]) {
+  const ids = [...new Set(roleIds)];
+
+  return db.$transaction(async (tx) => {
+    const [user, roles] = await Promise.all([
+      tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      }),
+      tx.role.findMany({
+        where: { id: { in: ids } },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!user) {
+      return { success: false as const, message: "用户不存在" };
+    }
+
+    if (roles.length !== ids.length) {
+      return { success: false as const, message: "存在无效角色" };
+    }
+
+    await tx.userRole.deleteMany({
+      where: { userId },
+    });
+
+    if (ids.length > 0) {
+      await tx.userRole.createMany({
+        data: ids.map((roleId) => ({
+          userId,
+          roleId,
+        })),
+      });
+    }
+
+    return { success: true as const };
+  });
+}
+
+export async function getRoleUserCandidates(roleId: string, keyword: string) {
+  const [role, users] = await Promise.all([
+    db.role.findUnique({
+      where: { id: roleId },
+      select: {
+        id: true,
+        userRoles: {
+          select: { userId: true },
+        },
+      },
+    }),
+
+    db.user.findMany({
+      where: keyword
+        ? {
+            OR: [
+              { name: { contains: keyword, mode: "insensitive" } },
+              { username: { contains: keyword, mode: "insensitive" } },
+              { email: { contains: keyword, mode: "insensitive" } },
+            ],
+          }
+        : {},
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+  ]);
+
+  if (!role) {
+    return null;
+  }
+
+  return {
+    assignedUserIds: role.userRoles.map((item) => item.userId),
+    users,
+  };
+}
+
+export async function updateRoleUsers(roleId: string, userIds: string[]) {
+  const ids = [...new Set(userIds)];
+
+  return db.$transaction(async (tx) => {
+    const [role, users] = await Promise.all([
+      tx.role.findUnique({
+        where: { id: roleId },
+        select: { id: true },
+      }),
+      tx.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!role) {
+      return { success: false as const, message: "角色不存在" };
+    }
+
+    if (users.length !== ids.length) {
+      return { success: false as const, message: "存在无效用户" };
+    }
+
+    await tx.userRole.deleteMany({
+      where: { roleId },
+    });
+
+    if (ids.length > 0) {
+      await tx.userRole.createMany({
+        data: ids.map((userId) => ({
+          userId,
+          roleId,
+        })),
+      });
+    }
+
+    return { success: true as const };
   });
 }
 

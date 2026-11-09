@@ -18,7 +18,7 @@ import {
   formatUserDate,
 } from "@/features/users/constants";
 import { userListQuerySchema } from "@/features/users/schemas";
-import { getUserList } from "@/features/users/service";
+import { getRoleOptions, getUserList } from "@/features/users/service";
 import { UserAccountActions } from "./user-account-actions";
 import { UserDetailDrawer } from "./user-detail-drawer";
 
@@ -40,11 +40,16 @@ export async function UserList({
   const created = params.created === "1";
   const updated = params.updated === "1";
 
-  const { items, total, page, totalPages } = await getUserList({
-    page: query.page,
-    pageSize: PAGE_SIZE,
-    keyword,
-  });
+  const [result, roles] = await Promise.all([
+    getUserList({
+      page: query.page,
+      pageSize: PAGE_SIZE,
+      keyword,
+    }),
+    getRoleOptions(),
+  ]);
+
+  const { items, total, page, totalPages } = result;
 
   return (
     <div className="space-y-4">
@@ -123,6 +128,10 @@ export async function UserList({
                         userId={user.id}
                         username={user.username ?? user.name}
                         status={user.status}
+                        roles={roles}
+                        assignedRoleIds={user.userRoles.map(
+                          (item) => item.roleId
+                        )}
                       />
                     </div>
                   </TableCell>

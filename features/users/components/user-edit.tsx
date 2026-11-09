@@ -20,8 +20,11 @@ export async function UserEdit({ params }: UserEditProps) {
   }
 
   return (
-    <div className="max-w-xl">
-      <UserEditForm user={user} />
+    <div className="max-w-xl space-y-8">
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold">基本资料</h2>
+        <UserEditForm user={user} />
+      </section>
     </div>
   );
 }
@@ -33,7 +36,6 @@ export function UserEditSkeleton() {
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-5 w-24" />
       <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-28" />
     </div>
   );
 }
