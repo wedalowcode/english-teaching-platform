@@ -17,6 +17,9 @@ const {
   findUnique,
   deleteUserMock,
   hashPassword,
+  accountFindFirst,
+  accountUpdate,
+  accountCreate,
 } = vi.hoisted(() => ({
   findMany: vi.fn(),
   count: vi.fn(),
@@ -25,6 +28,9 @@ const {
   findUnique: vi.fn(),
   deleteUserMock: vi.fn(),
   hashPassword: vi.fn(),
+  accountFindFirst: vi.fn(),
+  accountUpdate: vi.fn(),
+  accountCreate: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -37,6 +43,11 @@ vi.mock("@/lib/db", () => ({
       update,
       findUnique,
       delete: deleteUserMock,
+    },
+    account: {
+      findFirst: accountFindFirst,
+      update: accountUpdate,
+      create: accountCreate,
     },
   },
 }));
@@ -69,14 +80,16 @@ describe("getUserList", () => {
     );
   });
 
-  it("有关键词时应按用户名或手机号搜索", async () => {
+  it("有关键词时应按姓名、用户名、邮箱或手机号搜索", async () => {
     await getUserList({ page: 1, pageSize: 10, keyword: "demo" });
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           OR: [
+            { name: { contains: "demo", mode: "insensitive" } },
             { username: { contains: "demo", mode: "insensitive" } },
+            { email: { contains: "demo", mode: "insensitive" } },
             { phone: { contains: "demo" } },
           ],
         },
@@ -101,13 +114,15 @@ describe("getUserList", () => {
     expect(args.select).not.toHaveProperty("passwordHash");
   });
 
-  it("详情抽屉所需的更新时间应包含在列表查询结果中", async () => {
+  it("列表查询应包含姓名、邮箱和更新时间", async () => {
     await getUserList({ page: 1, pageSize: 10, keyword: "" });
 
     const args = findMany.mock.calls[0][0];
 
     expect(args.select).toEqual({
       id: true,
+      name: true,
+      email: true,
       username: true,
       phone: true,
       status: true,
@@ -119,6 +134,8 @@ describe("getUserList", () => {
 
 describe("createUser", () => {
   const input = {
+    name: "Alice",
+    email: "alice@example.com",
     username: "alice",
     phone: null,
     password: "Learn@2026",
@@ -130,18 +147,38 @@ describe("createUser", () => {
     create.mockResolvedValue({ id: "user-1" });
   });
 
-  it("写入数据库的是哈希密码，不是明文", async () => {
+  it("同时创建用户和 credential 账号，写入哈希密码", async () => {
     await createUser(input);
 
     expect(hashPassword).toHaveBeenCalledWith("Learn@2026");
-    expect(create).toHaveBeenCalledWith({
-      data: {
+
+    const args = create.mock.calls[0][0];
+
+    expect(args.data).toEqual(
+      expect.objectContaining({
+        name: "Alice",
+        email: "alice@example.com",
         username: "alice",
         phone: null,
-        passwordHash: "hashed-password",
-      },
-      select: { id: true },
-    });
+      })
+    );
+
+    expect(args.data.accounts.create).toEqual(
+      expect.objectContaining({
+        providerId: "credential",
+        password: "hashed-password",
+      })
+    );
+
+    expect(args.select).toEqual({ id: true });
+  });
+
+  it("账号 accountId 应指向新建用户 ID", async () => {
+    await createUser(input);
+
+    const args = create.mock.calls[0][0];
+
+    expect(args.data.accounts.create.accountId).toBe(args.data.id);
   });
 
   it("空手机号以 null 写入", async () => {
@@ -169,12 +206,13 @@ describe("createUser", () => {
     await expect(createUser(input)).rejects.toThrow("用户名已存在");
   });
 
-  it("冲突字段不是用户名时继续抛出原错误", async () => {
-    const error = { code: "P2002", meta: { target: ["phone"] } };
+  it("邮箱唯一冲突时提示邮箱已被使用", async () => {
+    create.mockRejectedValue({
+      code: "P2002",
+      meta: { target: ["email"] },
+    });
 
-    create.mockRejectedValue(error);
-
-    await expect(createUser(input)).rejects.toBe(error);
+    await expect(createUser(input)).rejects.toThrow("邮箱已被使用");
   });
 
   it("其他数据库错误继续抛出", async () => {
@@ -185,7 +223,7 @@ describe("createUser", () => {
     await expect(createUser(input)).rejects.toBe(error);
   });
 
-  it("不向调用方返回 passwordHash", async () => {
+  it("不向调用方返回密码哈希", async () => {
     const result = await createUser(input);
 
     expect(result).toEqual({ id: "user-1" });
@@ -194,6 +232,8 @@ describe("createUser", () => {
 
 describe("updateUser", () => {
   const input = {
+    name: "Alice",
+    email: "alice@example.com",
     username: "alice",
     phone: "13800138000",
   };
@@ -203,7 +243,7 @@ describe("updateUser", () => {
     update.mockResolvedValue({ id: "user-1" });
   });
 
-  it("应正确更新用户名和手机号", async () => {
+  it("应正确更新姓名、邮箱、用户名和手机号", async () => {
     const result = await updateUser("user-1", input);
 
     expect(result).toEqual({ success: true });
@@ -211,6 +251,8 @@ describe("updateUser", () => {
     expect(update).toHaveBeenCalledWith({
       where: { id: "user-1" },
       data: {
+        name: "Alice",
+        email: "alice@example.com",
         username: "alice",
         phone: "13800138000",
       },
@@ -232,6 +274,23 @@ describe("updateUser", () => {
       success: false,
       code: "USERNAME_TAKEN",
       message: "用户名已存在",
+    });
+  });
+
+  it("邮箱重复时应返回 EMAIL_TAKEN", async () => {
+    update.mockRejectedValue({
+      code: "P2002",
+      meta: {
+        target: ["email"],
+      },
+    });
+
+    const result = await updateUser("user-1", input);
+
+    expect(result).toEqual({
+      success: false,
+      code: "EMAIL_TAKEN",
+      message: "邮箱已被使用",
     });
   });
 
@@ -266,26 +325,48 @@ describe("resetUserPassword", () => {
 
     hashPassword.mockResolvedValue("hashed-password");
 
-    update.mockResolvedValue({
-      id: "user-1",
-    });
+    findUnique.mockResolvedValue({ id: "user-1" });
+
+    accountFindFirst.mockResolvedValue({ id: "account-1" });
+
+    accountUpdate.mockResolvedValue({ id: "account-1" });
   });
 
-  it("应使用哈希密码更新用户密码", async () => {
+  it("应使用哈希密码更新 credential 账号", async () => {
     const result = await resetUserPassword("user-1", newPassword);
 
     expect(hashPassword).toHaveBeenCalledWith(newPassword);
 
-    expect(update).toHaveBeenCalledWith({
+    expect(accountFindFirst).toHaveBeenCalledWith({
       where: {
-        id: "user-1",
+        userId: "user-1",
+        providerId: "credential",
       },
-      data: {
-        passwordHash: "hashed-password",
-      },
-      select: {
-        id: true,
-      },
+      select: { id: true },
+    });
+
+    expect(accountUpdate).toHaveBeenCalledWith({
+      where: { id: "account-1" },
+      data: { password: "hashed-password" },
+    });
+
+    expect(result).toEqual({
+      success: true,
+    });
+  });
+
+  it("账号不存在时应补建 credential 账号", async () => {
+    accountFindFirst.mockResolvedValue(null);
+
+    const result = await resetUserPassword("user-1", newPassword);
+
+    expect(accountCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        accountId: "user-1",
+        providerId: "credential",
+        userId: "user-1",
+        password: "hashed-password",
+      }),
     });
 
     expect(result).toEqual({
@@ -294,9 +375,7 @@ describe("resetUserPassword", () => {
   });
 
   it("用户不存在时应返回 NOT_FOUND", async () => {
-    update.mockRejectedValue({
-      code: "P2025",
-    });
+    findUnique.mockResolvedValue(null);
 
     const result = await resetUserPassword("missing-user", newPassword);
 
@@ -307,20 +386,12 @@ describe("resetUserPassword", () => {
     });
   });
 
-  it("其他数据库异常应继续抛出", async () => {
-    const error = new Error("connection lost");
-
-    update.mockRejectedValue(error);
-
-    await expect(
-      resetUserPassword("user-1", newPassword)
-    ).rejects.toBe(error);
-  });
-
-  it("传给数据库更新参数中不应出现明文密码", async () => {
+  it("传给数据库的参数中不应出现明文密码", async () => {
     await resetUserPassword("user-1", newPassword);
 
-    expect(JSON.stringify(update.mock.calls)).not.toContain(newPassword);
+    expect(JSON.stringify(accountUpdate.mock.calls)).not.toContain(
+      newPassword
+    );
   });
 });
 
@@ -332,6 +403,8 @@ describe("getUserById", () => {
   it("查询用户时不应返回密码哈希", async () => {
     findUnique.mockResolvedValue({
       id: "user-1",
+      name: "Alice",
+      email: "alice@example.com",
       username: "alice",
       phone: null,
     });
@@ -344,6 +417,8 @@ describe("getUserById", () => {
       where: { id: "user-1" },
       select: {
         id: true,
+        name: true,
+        email: true,
         username: true,
         phone: true,
       },

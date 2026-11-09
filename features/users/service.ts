@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import type { Prisma, UserStatus } from "@/app/generated/prisma/client";
 import { hashPassword } from "@/lib/password";
 import type { CreateUserInput, UpdateUserInput } from "./schemas";
+
 type UserListParams = {
   page: number;
   pageSize: number;
@@ -16,7 +17,7 @@ export type UserOperationResult =
     }
   | {
       success: false;
-      code: "NOT_FOUND" | "USERNAME_TAKEN" | "CONFLICT";
+      code: "NOT_FOUND" | "USERNAME_TAKEN" | "EMAIL_TAKEN" | "CONFLICT";
       message: string;
     };
 
@@ -28,6 +29,27 @@ function getErrorCode(error: unknown): string | undefined {
   }
 
   return undefined;
+}
+
+function getUniqueTargetFields(error: unknown): string[] {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("meta" in error) ||
+    !error.meta ||
+    typeof error.meta !== "object" ||
+    !("target" in error.meta)
+  ) {
+    return [];
+  }
+
+  const target = error.meta.target;
+
+  if (Array.isArray(target)) {
+    return target.map(String);
+  }
+
+  return typeof target === "string" ? [target] : [];
 }
 
 const USER_NOT_FOUND = {
@@ -48,7 +70,9 @@ export async function getUserList(params: UserListParams) {
   const where: Prisma.UserWhereInput = keyword
     ? {
         OR: [
+          { name: { contains: keyword, mode: "insensitive" } },
           { username: { contains: keyword, mode: "insensitive" } },
+          { email: { contains: keyword, mode: "insensitive" } },
           { phone: { contains: keyword } },
         ],
       }
@@ -62,6 +86,8 @@ export async function getUserList(params: UserListParams) {
     where,
     select: {
       id: true,
+      name: true,
+      email: true,
       username: true,
       phone: true,
       status: true,
@@ -77,40 +103,39 @@ export async function getUserList(params: UserListParams) {
 }
 
 export async function createUser(input: CreateUserInput) {
+  const userId = crypto.randomUUID();
   const passwordHash = await hashPassword(input.password);
 
   try {
     return await db.user.create({
       data: {
+        id: userId,
+        name: input.name,
+        email: input.email,
         username: input.username,
         phone: input.phone,
-        passwordHash,
+
+        accounts: {
+          create: {
+            id: crypto.randomUUID(),
+            accountId: userId,
+            providerId: "credential",
+            password: passwordHash,
+          },
+        },
       },
       select: { id: true },
     });
   } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "P2002"
-    ) {
-      const target =
-        "meta" in error &&
-        error.meta &&
-        typeof error.meta === "object" &&
-        "target" in error.meta
-          ? error.meta.target
-          : undefined;
-
-      const fields = Array.isArray(target)
-        ? target
-        : typeof target === "string"
-          ? [target]
-          : [];
+    if (getErrorCode(error) === "P2002") {
+      const fields = getUniqueTargetFields(error);
 
       if (fields.includes("username")) {
         throw new Error("用户名已存在");
+      }
+
+      if (fields.includes("email")) {
+        throw new Error("邮箱已被使用");
       }
     }
 
@@ -123,6 +148,8 @@ export async function getUserById(id: string) {
     where: { id },
     select: {
       id: true,
+      name: true,
+      email: true,
       username: true,
       phone: true,
     },
@@ -137,6 +164,8 @@ export async function updateUser(
     await db.user.update({
       where: { id },
       data: {
+        name: input.name,
+        email: input.email,
         username: input.username,
         phone: input.phone,
       },
@@ -150,6 +179,16 @@ export async function updateUser(
     const code = getErrorCode(error);
 
     if (code === "P2002") {
+      const fields = getUniqueTargetFields(error);
+
+      if (fields.includes("email")) {
+        return {
+          success: false,
+          code: "EMAIL_TAKEN",
+          message: "邮箱已被使用",
+        };
+      }
+
       return {
         success: false,
         code: "USERNAME_TAKEN",
@@ -169,29 +208,45 @@ export async function resetUserPassword(
   id: string,
   password: string
 ): Promise<UserOperationResult> {
+  const user = await db.user.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return USER_NOT_FOUND;
+  }
+
   const passwordHash = await hashPassword(password);
 
-  try {
-    await db.user.update({
-      where: { id },
+  const credentialAccount = await db.account.findFirst({
+    where: {
+      userId: id,
+      providerId: "credential",
+    },
+    select: { id: true },
+  });
+
+  if (credentialAccount) {
+    await db.account.update({
+      where: { id: credentialAccount.id },
+      data: { password: passwordHash },
+    });
+  } else {
+    await db.account.create({
       data: {
-        passwordHash,
-      },
-      select: {
-        id: true,
+        id: crypto.randomUUID(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: passwordHash,
       },
     });
-
-    return {
-      success: true,
-    };
-  } catch (error) {
-    if (getErrorCode(error) === "P2025") {
-      return USER_NOT_FOUND;
-    }
-
-    throw error;
   }
+
+  return {
+    success: true,
+  };
 }
 
 export async function setUserStatus(

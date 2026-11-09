@@ -28,6 +28,8 @@ export async function createUserAction(
   await requireUserAdmin();
 
   const values = {
+    name: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
     username: String(formData.get("username") ?? ""),
     phone: String(formData.get("phone") ?? ""),
   };
@@ -55,6 +57,14 @@ export async function createUserAction(
       };
     }
 
+    if (error instanceof Error && error.message === "邮箱已被使用") {
+      return {
+        message: error.message,
+        fieldErrors: { email: [error.message] },
+        values,
+      };
+    }
+
     throw error;
   }
 
@@ -70,6 +80,8 @@ export async function updateUserAction(
   await requireUserAdmin();
 
   const values = {
+    name: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
     username: String(formData.get("username") ?? ""),
     phone: String(formData.get("phone") ?? ""),
   };
@@ -92,7 +104,9 @@ export async function updateUserAction(
       fieldErrors:
         result.code === "USERNAME_TAKEN"
           ? { username: [result.message] }
-          : undefined,
+          : result.code === "EMAIL_TAKEN"
+            ? { email: [result.message] }
+            : undefined,
       values,
     };
   }

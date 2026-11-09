@@ -5,6 +5,17 @@ export const userListQuerySchema = z.object({
   keyword: z.string().trim().max(50).catch(""),
 });
 
+const nameField = z
+  .string()
+  .trim()
+  .min(1, "请输入姓名")
+  .max(50, "姓名不能超过 50 位");
+
+const emailField = z
+  .email("邮箱格式不正确")
+  .max(100, "邮箱不能超过 100 位")
+  .transform((value) => value.toLowerCase());
+
 const usernameField = z
   .string()
   .trim()
@@ -23,6 +34,8 @@ const phoneField = z
   );
 
 export const createUserSchema = z.object({
+  name: nameField,
+  email: emailField,
   username: usernameField,
   phone: phoneField,
   password: z
@@ -32,6 +45,8 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = z.object({
+  name: nameField,
+  email: emailField,
   username: usernameField,
   phone: phoneField,
 });
@@ -58,6 +73,8 @@ export type CreateUserState = {
   message?: string;
   fieldErrors?: Record<string, string[]>;
   values?: {
+    name: string;
+    email: string;
     username: string;
     phone: string;
   };
@@ -66,10 +83,14 @@ export type CreateUserState = {
 export type UpdateUserState = {
   message?: string;
   fieldErrors?: {
+    name?: string[];
+    email?: string[];
     username?: string[];
     phone?: string[];
   };
   values?: {
+    name: string;
+    email: string;
     username: string;
     phone: string;
   };

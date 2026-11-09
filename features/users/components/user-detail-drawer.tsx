@@ -24,7 +24,9 @@ import {
 type UserDetailDrawerProps = {
   user: {
     id: string;
-    username: string;
+    name: string;
+    email: string;
+    username: string | null;
     phone: string | null;
     status: UserStatus;
     createdAt: Date;
@@ -66,17 +68,21 @@ export function UserDetailDrawer({ user }: UserDetailDrawerProps) {
         <div className="space-y-6 px-6 pb-6">
           <div className="flex items-center gap-3">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted text-lg font-semibold">
-              {user.username.slice(0, 1).toUpperCase()}
+              {user.name.slice(0, 1).toUpperCase()}
             </div>
 
             <div>
-              <p className="font-semibold">{user.username}</p>
-              <p className="text-sm text-muted-foreground">用户账号</p>
+              <p className="font-semibold">{user.name}</p>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-5">
-            <DetailItem label="用户名">{user.username}</DetailItem>
+            <DetailItem label="用户名">
+              {user.username || "未设置"}
+            </DetailItem>
+
+            <DetailItem label="邮箱">{user.email}</DetailItem>
 
             <DetailItem label="手机号">{user.phone || "未填写"}</DetailItem>
 

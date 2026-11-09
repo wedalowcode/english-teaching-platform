@@ -6,12 +6,30 @@ import {
 } from "./schemas";
 
 const valid = {
+  name: "Alice",
+  email: "Alice@Example.com",
   username: "Alice_01",
   phone: "13800138000",
   password: "Learn@2026",
 };
 
 describe("createUserSchema", () => {
+  it("邮箱统一转换为小写", () => {
+    expect(createUserSchema.parse(valid).email).toBe("alice@example.com");
+  });
+
+  it("拒绝非法邮箱", () => {
+    expect(
+      createUserSchema.safeParse({ ...valid, email: "alice" }).success
+    ).toBe(false);
+  });
+
+  it("拒绝空姓名", () => {
+    expect(
+      createUserSchema.safeParse({ ...valid, name: "  " }).success
+    ).toBe(false);
+  });
+
   it("用户名统一转换为小写", () => {
     expect(createUserSchema.parse(valid).username).toBe("alice_01");
   });
@@ -48,6 +66,8 @@ describe("createUserSchema", () => {
 describe("用户资料校验", () => {
   it("用户名过短时校验失败", () => {
     const result = updateUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "ab",
       phone: "",
     });
@@ -57,6 +77,8 @@ describe("用户资料校验", () => {
 
   it("用户名包含非法字符时校验失败", () => {
     const result = updateUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "alice@123",
       phone: "",
     });
@@ -66,6 +88,8 @@ describe("用户资料校验", () => {
 
   it("用户名应统一转换为小写", () => {
     const result = updateUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "Alice_01",
       phone: "",
     });
@@ -79,6 +103,8 @@ describe("用户资料校验", () => {
 
   it("手机号为空时应转换为 null", () => {
     const result = updateUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "alice",
       phone: "",
     });
@@ -92,6 +118,8 @@ describe("用户资料校验", () => {
 
   it("手机号格式不正确时应校验失败", () => {
     const result = updateUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "alice",
       phone: "123",
     });
@@ -101,6 +129,8 @@ describe("用户资料校验", () => {
 
   it("合法手机号应通过校验并原样保存", () => {
     const result = updateUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "alice",
       phone: "13800138000",
     });
@@ -114,6 +144,8 @@ describe("用户资料校验", () => {
 
   it("新增用户仍然必须提供密码", () => {
     const result = createUserSchema.safeParse({
+      name: "Alice",
+      email: "alice@example.com",
       username: "alice",
       phone: "",
     });

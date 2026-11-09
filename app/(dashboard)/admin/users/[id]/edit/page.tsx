@@ -5,6 +5,10 @@ import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { UserEdit, UserEditSkeleton } from "@/features/users/components/user-edit";
+import { requireCurrentUser } from "@/server/auth/session";
+
+// 会话校验需要阻塞渲染，先确认身份再输出页面数据
+export const instant = false;
 
 type Props = {
   params: Promise<{
@@ -12,7 +16,9 @@ type Props = {
   }>;
 };
 
-export default function EditUserPage({ params }: Props) {
+export default async function EditUserPage({ params }: Props) {
+  await requireCurrentUser();
+
   return (
     <div className="space-y-6">
       <PageHeader

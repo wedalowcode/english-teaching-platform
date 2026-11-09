@@ -64,7 +64,7 @@ export async function UserList({
         <Input
           name="keyword"
           defaultValue={keyword}
-          placeholder="搜索用户名或手机号"
+          placeholder="搜索姓名、用户名、邮箱或手机号"
           className="max-w-xs"
         />
         <Button type="submit">搜索</Button>
@@ -76,7 +76,8 @@ export async function UserList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>用户名</TableHead>
+              <TableHead>用户</TableHead>
+              <TableHead>邮箱</TableHead>
               <TableHead>手机号</TableHead>
               <TableHead>状态</TableHead>
               <TableHead>创建时间</TableHead>
@@ -90,7 +91,13 @@ export async function UserList({
 
               return (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {user.username ?? "未设置用户名"}
+                    </div>
+                  </TableCell>
+                  <TableCell>{user.email}</TableCell>
                   <TableCell>{user.phone ?? "-"}</TableCell>
                   <TableCell>
                     <Badge variant={variant}>
@@ -114,7 +121,7 @@ export async function UserList({
 
                       <UserAccountActions
                         userId={user.id}
-                        username={user.username}
+                        username={user.username ?? user.name}
                         status={user.status}
                       />
                     </div>
@@ -126,7 +133,7 @@ export async function UserList({
             {items.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
                   暂无用户数据

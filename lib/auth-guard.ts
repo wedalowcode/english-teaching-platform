@@ -1,7 +1,11 @@
 import "server-only";
 
+import { requireCurrentUser } from "@/server/auth/session";
+
+/**
+ * 当前只校验是否已登录。
+ * 角色权限（管理员/教务/教师）在后续篇章中接入。
+ */
 export async function requireUserAdmin() {
-  if (process.env.NODE_ENV !== "development") {
-    throw new Error("尚未接入认证，禁止在非开发环境执行此操作");
-  }
+  await requireCurrentUser();
 }

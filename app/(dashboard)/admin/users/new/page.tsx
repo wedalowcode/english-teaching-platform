@@ -4,8 +4,14 @@ import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { UserCreateForm } from "@/features/users/components/user-create-form";
+import { requireCurrentUser } from "@/server/auth/session";
 
-export default function NewUserPage() {
+// 会话校验需要阻塞渲染，先确认身份再输出页面
+export const instant = false;
+
+export default async function NewUserPage() {
+  await requireCurrentUser();
+
   return (
     <div className="space-y-6">
       <PageHeader
