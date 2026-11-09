@@ -125,6 +125,18 @@ async function seedRoles() {
       description: "查看学生学习情况和课程报告",
       isSystem: false,
     },
+    {
+      code: "COURSE_OPERATOR",
+      name: "课程运营",
+      description: "负责课程配置和课程内容维护",
+      isSystem: false,
+    },
+    {
+      code: "STUDENT_MANAGER",
+      name: "学员管理员",
+      description: "负责学员资料和学习档案管理",
+      isSystem: false,
+    },
   ];
 
   for (const role of roles) {

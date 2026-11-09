@@ -1,5 +1,7 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -15,6 +17,7 @@ import { ListPagination } from "@/components/shared/list-pagination";
 
 import { roleListQuerySchema } from "@/features/roles/schemas";
 import { getRoleList } from "@/features/roles/service";
+import { RoleStatusAction } from "./role-status-action";
 
 const PAGE_SIZE = 10;
 
@@ -32,6 +35,8 @@ export async function RoleList({
   const query = roleListQuerySchema.parse(params);
 
   const keyword = query.keyword;
+  const created = params.created === "1";
+  const updated = params.updated === "1";
 
   const { items, total, page, totalPages } = await getRoleList({
     page: query.page,
@@ -41,16 +46,34 @@ export async function RoleList({
 
   return (
     <div className="space-y-4">
-      <form className="flex gap-2">
-        <Input
-          name="keyword"
-          defaultValue={keyword}
-          placeholder="搜索角色名称或编码"
-          className="max-w-xs"
-        />
+      {created && (
+        <p role="status" className="text-sm text-green-600">
+          角色创建成功
+        </p>
+      )}
 
-        <Button type="submit">搜索</Button>
-      </form>
+      {updated && (
+        <p role="status" className="text-sm text-green-600">
+          角色修改成功
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <form className="flex gap-2">
+          <Input
+            name="keyword"
+            defaultValue={keyword}
+            placeholder="搜索角色名称或编码"
+            className="max-w-xs"
+          />
+
+          <Button type="submit">搜索</Button>
+        </form>
+
+        <Link href="/admin/roles/new" className={buttonVariants()}>
+          新增角色
+        </Link>
+      </div>
 
       <p className="text-sm text-muted-foreground">共 {total} 个角色</p>
 
@@ -63,7 +86,9 @@ export async function RoleList({
               <TableHead>角色说明</TableHead>
               <TableHead>关联用户</TableHead>
               <TableHead>角色类型</TableHead>
+              <TableHead>状态</TableHead>
               <TableHead>创建时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -89,7 +114,33 @@ export async function RoleList({
                 </TableCell>
 
                 <TableCell>
+                  <Badge variant={role.isActive ? "secondary" : "outline"}>
+                    {role.isActive ? "启用" : "停用"}
+                  </Badge>
+                </TableCell>
+
+                <TableCell>
                   {role.createdAt.toLocaleDateString("zh-CN")}
+                </TableCell>
+
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Link
+                      href={`/admin/roles/${role.id}/edit`}
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "sm",
+                      })}
+                    >
+                      编辑
+                    </Link>
+
+                    <RoleStatusAction
+                      roleId={role.id}
+                      isActive={role.isActive}
+                      isSystem={role.isSystem}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -97,7 +148,7 @@ export async function RoleList({
             {items.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={8}
                   className="h-24 text-center text-muted-foreground"
                 >
                   暂无角色数据
