@@ -1,4 +1,4 @@
-import { Users } from "lucide-react";
+import { ShieldCheck, Users } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
 
@@ -25,6 +25,11 @@ export const adminMenus: MenuGroup[] = [
         title: "用户管理",
         href: "/admin/users",
         icon: Users,
+      },
+      {
+        title: "角色管理",
+        href: "/admin/roles",
+        icon: ShieldCheck,
       },
     ],
   },

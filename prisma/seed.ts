@@ -99,9 +99,145 @@ async function seedInitialAdmin() {
   console.log(`已创建初始管理员 ${username}`);
 }
 
+async function seedRoles() {
+  const roles = [
+    {
+      code: "ADMIN",
+      name: "系统管理员",
+      description: "负责系统配置、用户和权限管理",
+      isSystem: true,
+    },
+    {
+      code: "ACADEMIC",
+      name: "教务人员",
+      description: "负责学生、课程和教学安排",
+      isSystem: false,
+    },
+    {
+      code: "TEACHER",
+      name: "教师",
+      description: "负责学生授课和学习记录",
+      isSystem: false,
+    },
+    {
+      code: "PARENT",
+      name: "家长",
+      description: "查看学生学习情况和课程报告",
+      isSystem: false,
+    },
+  ];
+
+  for (const role of roles) {
+    await db.role.upsert({
+      where: {
+        code: role.code,
+      },
+      update: {
+        name: role.name,
+        description: role.description,
+        isSystem: role.isSystem,
+      },
+      create: role,
+    });
+  }
+
+  console.log(`已初始化 ${roles.length} 个系统角色`);
+}
+
+async function seedDemoUserRoles() {
+  const users = await db.user.findMany({
+    where: {
+      username: {
+        startsWith: "demo_user_",
+      },
+    },
+    select: {
+      id: true,
+    },
+    orderBy: {
+      username: "asc",
+    },
+  });
+
+  const roles = await db.role.findMany({
+    where: {
+      code: {
+        in: ["TEACHER", "PARENT", "ACADEMIC"],
+      },
+    },
+    select: {
+      id: true,
+      code: true,
+    },
+  });
+
+  const roleMap = new Map(
+    roles.map((role) => [role.code, role.id])
+  );
+
+  const roleCodes = ["TEACHER", "PARENT", "ACADEMIC"];
+
+  const data = users.flatMap((user, index) => {
+    const roleCode = roleCodes[index % roleCodes.length];
+    const roleId = roleMap.get(roleCode);
+
+    return roleId
+      ? [{ userId: user.id, roleId }]
+      : [];
+  });
+
+  const result = await db.userRole.createMany({
+    data,
+    skipDuplicates: true,
+  });
+
+  console.log(`已建立 ${result.count} 条演示用户角色关联`);
+}
+
+async function seedAdminRole() {
+  const username = process.env.INIT_ADMIN_USERNAME;
+
+  if (!username) {
+    return;
+  }
+
+  const [user, role] = await Promise.all([
+    db.user.findUnique({
+      where: { username },
+      select: { id: true },
+    }),
+
+    db.role.findUnique({
+      where: { code: "ADMIN" },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!user || !role) {
+    console.log("初始管理员或 ADMIN 角色不存在，跳过关联");
+    return;
+  }
+
+  await db.userRole.createMany({
+    data: [
+      {
+        userId: user.id,
+        roleId: role.id,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  console.log(`已为 ${username} 分配系统管理员角色`);
+}
+
 async function main() {
   await seedDemoUsers();
+  await seedRoles();
+  await seedDemoUserRoles();
+
   await seedInitialAdmin();
+  await seedAdminRole();
 }
 
 main()
