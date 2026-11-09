@@ -72,7 +72,7 @@ export async function UserList({
 
       <p className="text-sm text-muted-foreground">共 {total} 位用户</p>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
