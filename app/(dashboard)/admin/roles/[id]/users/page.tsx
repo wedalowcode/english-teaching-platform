@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { buttonVariants } from "@/components/ui/button";
 
-import { requireCurrentUser } from "@/server/auth/session";
+import { requireAdmin } from "@/lib/auth-guard";
 import { getRoleById } from "@/features/roles/service";
 import { RoleUsersList } from "@/features/roles/components/role-users-list";
 
@@ -22,7 +22,7 @@ export default async function RoleUsersPage({
   params,
   searchParams,
 }: Props) {
-  await requireCurrentUser();
+  await requireAdmin();
 
   const { id: roleId } = await params;
   const role = await getRoleById(roleId);

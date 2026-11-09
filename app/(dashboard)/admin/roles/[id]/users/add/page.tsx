@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 
-import { requireCurrentUser } from "@/server/auth/session";
+import { requireAdmin } from "@/lib/auth-guard";
 import { getRoleById } from "@/features/roles/service";
 import { AvailableRoleUsersList } from "@/features/roles/components/available-role-users-list";
 
@@ -21,7 +21,7 @@ export default async function AddRoleUsersPage({
   params,
   searchParams,
 }: Props) {
-  await requireCurrentUser();
+  await requireAdmin();
 
   const { id: roleId } = await params;
   const role = await getRoleById(roleId);

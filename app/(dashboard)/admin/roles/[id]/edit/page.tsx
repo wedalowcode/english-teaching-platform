@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 import { RoleForm } from "@/features/roles/components/role-form";
 import { getRoleById } from "@/features/roles/service";
-import { requireCurrentUser } from "@/server/auth/session";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const instant = false;
 
@@ -18,7 +18,7 @@ type Props = {
 };
 
 export default async function EditRolePage({ params }: Props) {
-  await requireCurrentUser();
+  await requireAdmin();
 
   const { id } = await params;
   const role = await getRoleById(id);

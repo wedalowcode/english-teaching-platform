@@ -5,12 +5,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 
 import { RoleForm } from "@/features/roles/components/role-form";
-import { requireCurrentUser } from "@/server/auth/session";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const instant = false;
 
 export default async function NewRolePage() {
-  await requireCurrentUser();
+  await requireAdmin();
 
   return (
     <div className="space-y-6">

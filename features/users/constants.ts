@@ -14,12 +14,5 @@ export const USER_STATUS_BADGE_VARIANT: Record<
   DISABLED: "secondary",
 };
 
-const USER_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Shanghai",
-});
-
-export function formatUserDate(value: Date) {
-  return USER_DATE_FORMATTER.format(value);
-}
+// 用户列表和角色列表共用同一套日期格式与上海时区
+export { formatDateTime as formatUserDate } from "@/lib/date";

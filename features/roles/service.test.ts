@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addUserToRole,
   getAvailableRoleUsers,
+  getRoleList,
   getRoleUsers,
   removeUserFromRole,
 } from "./service";
@@ -9,17 +10,23 @@ import {
 const {
   userCount,
   userFindMany,
+  roleCount,
+  roleFindMany,
   roleFindUnique,
   userRoleUpsert,
   userRoleDeleteMany,
   userFindUnique,
+  requireAdmin,
 } = vi.hoisted(() => ({
   userCount: vi.fn(),
   userFindMany: vi.fn(),
+  roleCount: vi.fn(),
+  roleFindMany: vi.fn(),
   roleFindUnique: vi.fn(),
   userRoleUpsert: vi.fn(),
   userRoleDeleteMany: vi.fn(),
   userFindUnique: vi.fn(),
+  requireAdmin: vi.fn().mockResolvedValue({ id: "current-user" }),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -31,6 +38,8 @@ vi.mock("@/lib/db", () => ({
       findUnique: userFindUnique,
     },
     role: {
+      count: roleCount,
+      findMany: roleFindMany,
       findUnique: roleFindUnique,
     },
     userRole: {
@@ -39,6 +48,104 @@ vi.mock("@/lib/db", () => ({
     },
   },
 }));
+
+vi.mock("@/lib/auth-guard", () => ({
+  requireAdmin,
+}));
+
+describe("getRoleList", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    roleCount.mockResolvedValue(6);
+    roleFindMany.mockResolvedValue([]);
+  });
+
+  it("应校验管理员身份后再查询", async () => {
+    await getRoleList({ page: 1, pageSize: 10, keyword: "" });
+
+    expect(requireAdmin).toHaveBeenCalled();
+  });
+
+  it("应正确计算分页", async () => {
+    const result = await getRoleList({
+      page: 2,
+      pageSize: 10,
+      keyword: "",
+    });
+
+    expect(result.total).toBe(6);
+    expect(result.totalPages).toBe(1);
+    expect(result.page).toBe(1);
+
+    expect(roleFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 10 })
+    );
+  });
+
+  it("页码超出范围时应限制到最后一页", async () => {
+    roleCount.mockResolvedValue(25);
+
+    const result = await getRoleList({
+      page: 99,
+      pageSize: 10,
+      keyword: "",
+    });
+
+    expect(result.totalPages).toBe(3);
+    expect(result.page).toBe(3);
+
+    expect(roleFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 10 })
+    );
+  });
+
+  it("有关键词时应同时匹配名称和编码", async () => {
+    await getRoleList({ page: 1, pageSize: 10, keyword: "admin" });
+
+    expect(roleFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { name: { contains: "admin", mode: "insensitive" } },
+            { code: { contains: "admin", mode: "insensitive" } },
+          ],
+        },
+      })
+    );
+  });
+
+  it("没有关键词时不应附加搜索条件", async () => {
+    await getRoleList({ page: 1, pageSize: 10, keyword: "" });
+
+    expect(roleFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} })
+    );
+  });
+
+  it("关联用户只统计启用账号，并按固定顺序排序", async () => {
+    await getRoleList({ page: 1, pageSize: 10, keyword: "" });
+
+    const args = roleFindMany.mock.calls[0][0];
+
+    expect(args.select._count).toEqual({
+      select: {
+        userRoles: {
+          where: {
+            user: { status: "ACTIVE" },
+          },
+        },
+      },
+    });
+
+    expect(args.orderBy).toEqual([
+      { isSystem: "desc" },
+      { sort: "asc" },
+      { createdAt: "asc" },
+      { id: "asc" },
+    ]);
+  });
+});
 
 describe("getRoleUsers", () => {
   beforeEach(() => {

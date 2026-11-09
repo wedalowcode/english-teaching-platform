@@ -26,11 +26,19 @@ export function LoginForm() {
       const result = await authClient.signIn.username({
         username,
         password,
-        callbackURL: "/admin/users",
       });
 
       if (result.error) {
-        setError("用户名或密码错误");
+        // 用户名或密码错误统一提示，避免泄露账号是否存在。
+        // 账号停用的提示只有在密码校验通过后才会出现，可以原样展示。
+        const isCredentialError =
+          result.error.code === "INVALID_USERNAME_OR_PASSWORD";
+
+        setError(
+          isCredentialError
+            ? "用户名或密码错误"
+            : result.error.message || "登录失败，请稍后重试"
+        );
         return;
       }
 

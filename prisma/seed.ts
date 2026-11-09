@@ -1,7 +1,6 @@
 import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import * as argon2 from "argon2";
 
 import { PrismaClient, UserStatus } from "../app/generated/prisma/client";
 
@@ -14,16 +13,6 @@ if (!connectionString) {
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
-
-// 与 lib/password.ts 保持一致，Argon2id 参数变更时两处同步
-function hashPassword(password: string) {
-  return argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19456,
-    timeCost: 2,
-    parallelism: 1,
-  });
-}
 
 async function seedDemoUsers() {
   const now = Date.now();
@@ -48,94 +37,50 @@ async function seedDemoUsers() {
   });
 
   console.log(`已写入 ${result.count} 条演示用户`);
-}
-
-async function seedInitialAdmin() {
-  const name = process.env.INIT_ADMIN_NAME;
-  const email = process.env.INIT_ADMIN_EMAIL;
-  const username = process.env.INIT_ADMIN_USERNAME;
-  const password = process.env.INIT_ADMIN_PASSWORD;
-
-  if (!name || !email || !username || !password) {
-    console.log("未配置 INIT_ADMIN_* 环境变量，跳过初始管理员创建");
-    return;
-  }
-
-  const existing = await db.user.findFirst({
-    where: {
-      OR: [{ username }, { email }],
-    },
-    select: { id: true },
-  });
-
-  if (existing) {
-    console.log(`管理员 ${username} 已存在，跳过创建`);
-    return;
-  }
-
-  const userId = crypto.randomUUID();
-  const passwordHash = await hashPassword(password);
-
-  await db.user.create({
-    data: {
-      id: userId,
-      name,
-      email,
-      emailVerified: true,
-      username,
-      status: UserStatus.ACTIVE,
-
-      accounts: {
-        create: {
-          id: crypto.randomUUID(),
-          accountId: userId,
-          providerId: "credential",
-          password: passwordHash,
-        },
-      },
-    },
-  });
-
-  console.log(`已创建初始管理员 ${username}`);
+  console.log("演示用户仅用于列表、搜索和分页，不创建登录凭证");
 }
 
 async function seedRoles() {
+  /**
+   * 内置角色由系统预置，业务代码依赖其 code，不允许删除。
+   * sort 只决定列表里的展示顺序。
+   */
   const roles = [
     {
-      code: "ADMIN",
-      name: "系统管理员",
-      description: "负责系统配置、用户和权限管理",
-      isSystem: true,
+      code: "BOSS",
+      name: "老板",
+      description: "查看经营数据与整体运营情况",
+      sort: 10,
     },
     {
       code: "ACADEMIC",
       name: "教务人员",
       description: "负责学生、课程和教学安排",
-      isSystem: false,
+      sort: 20,
+    },
+    {
+      code: "ADMIN",
+      name: "系统管理员",
+      description: "负责系统配置、用户和权限管理",
+      sort: 30,
     },
     {
       code: "TEACHER",
       name: "教师",
       description: "负责学生授课和学习记录",
-      isSystem: false,
+      sort: 40,
     },
     {
       code: "PARENT",
       name: "家长",
       description: "查看学生学习情况和课程报告",
-      isSystem: false,
+      sort: 50,
     },
     {
-      code: "COURSE_OPERATOR",
-      name: "课程运营",
-      description: "负责课程配置和课程内容维护",
-      isSystem: false,
-    },
-    {
-      code: "STUDENT_MANAGER",
-      name: "学员管理员",
-      description: "负责学员资料和学习档案管理",
-      isSystem: false,
+      code: "AGENT",
+      name: "代理",
+      description: "负责招生渠道与代理合作",
+      sort: 60,
     },
   ];
 
@@ -144,16 +89,19 @@ async function seedRoles() {
       where: {
         code: role.code,
       },
+      // 只同步系统维护的字段，不覆盖管理员后续修改的名称和说明
       update: {
-        name: role.name,
-        description: role.description,
-        isSystem: role.isSystem,
+        isSystem: true,
+        sort: role.sort,
       },
-      create: role,
+      create: {
+        ...role,
+        isSystem: true,
+      },
     });
   }
 
-  console.log(`已初始化 ${roles.length} 个系统角色`);
+  console.log(`已初始化 ${roles.length} 个内置角色`);
 }
 
 async function seedDemoUserRoles() {
@@ -161,6 +109,7 @@ async function seedDemoUserRoles() {
     where: {
       username: {
         startsWith: "demo_user_",
+        mode: "insensitive",
       },
     },
     select: {
@@ -171,10 +120,12 @@ async function seedDemoUserRoles() {
     },
   });
 
+  const roleCodes = ["TEACHER", "PARENT", "ACADEMIC", "AGENT"] as const;
+
   const roles = await db.role.findMany({
     where: {
       code: {
-        in: ["TEACHER", "PARENT", "ACADEMIC"],
+        in: [...roleCodes],
       },
     },
     select: {
@@ -186,8 +137,6 @@ async function seedDemoUserRoles() {
   const roleMap = new Map(
     roles.map((role) => [role.code, role.id])
   );
-
-  const roleCodes = ["TEACHER", "PARENT", "ACADEMIC"];
 
   const data = users.flatMap((user, index) => {
     const roleCode = roleCodes[index % roleCodes.length];
@@ -206,50 +155,12 @@ async function seedDemoUserRoles() {
   console.log(`已建立 ${result.count} 条演示用户角色关联`);
 }
 
-async function seedAdminRole() {
-  const username = process.env.INIT_ADMIN_USERNAME;
-
-  if (!username) {
-    return;
-  }
-
-  const [user, role] = await Promise.all([
-    db.user.findUnique({
-      where: { username },
-      select: { id: true },
-    }),
-
-    db.role.findUnique({
-      where: { code: "ADMIN" },
-      select: { id: true },
-    }),
-  ]);
-
-  if (!user || !role) {
-    console.log("初始管理员或 ADMIN 角色不存在，跳过关联");
-    return;
-  }
-
-  await db.userRole.createMany({
-    data: [
-      {
-        userId: user.id,
-        roleId: role.id,
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  console.log(`已为 ${username} 分配系统管理员角色`);
-}
-
 async function main() {
   await seedDemoUsers();
   await seedRoles();
   await seedDemoUserRoles();
 
-  await seedInitialAdmin();
-  await seedAdminRole();
+  console.log("初始管理员请单独运行 pnpm db:seed:admin");
 }
 
 main()

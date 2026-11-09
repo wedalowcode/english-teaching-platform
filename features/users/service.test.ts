@@ -26,6 +26,7 @@ const {
   roleFindMany,
   userRoleDeleteMany,
   userRoleCreateMany,
+  sessionDeleteMany,
 } = vi.hoisted(() => ({
   findMany: vi.fn(),
   count: vi.fn(),
@@ -41,6 +42,7 @@ const {
   roleFindMany: vi.fn(),
   userRoleDeleteMany: vi.fn(),
   userRoleCreateMany: vi.fn(),
+  sessionDeleteMany: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -66,10 +68,16 @@ vi.mock("@/lib/db", () => ({
       deleteMany: userRoleDeleteMany,
       createMany: userRoleCreateMany,
     },
+    session: {
+      deleteMany: sessionDeleteMany,
+    },
     $transaction: transaction,
   },
 }));
 vi.mock("@/lib/password", () => ({ hashPassword }));
+vi.mock("@/lib/auth-guard", () => ({
+  requireAdmin: vi.fn().mockResolvedValue({ id: "current-user" }),
+}));
 
 describe("getUserList", () => {
   beforeEach(() => {

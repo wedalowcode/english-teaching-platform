@@ -1,17 +1,22 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth-guard";
 import type { Prisma } from "@/app/generated/prisma/client";
 
-import type { CreateRoleInput, UpdateRoleInput } from "./schemas";
+import type {
+  CreateRoleInput,
+  RoleListQuery,
+  UpdateRoleInput,
+} from "./schemas";
 
-type RoleListParams = {
-  page: number;
+type RoleListParams = RoleListQuery & {
   pageSize: number;
-  keyword: string;
 };
 
 export async function getRoleList(params: RoleListParams) {
+  await requireAdmin();
+
   const { pageSize, keyword } = params;
 
   const where: Prisma.RoleWhereInput = keyword
@@ -53,13 +58,18 @@ export async function getRoleList(params: RoleListParams) {
 
       _count: {
         select: {
-          userRoles: true,
+          userRoles: {
+            where: {
+              user: { status: "ACTIVE" },
+            },
+          },
         },
       },
     },
 
     orderBy: [
       { isSystem: "desc" },
+      { sort: "asc" },
       { createdAt: "asc" },
       { id: "asc" },
     ],
@@ -96,6 +106,8 @@ function getErrorCode(error: unknown): string | undefined {
 }
 
 export async function getRoleById(id: string) {
+  await requireAdmin();
+
   return db.role.findUnique({
     where: { id },
     select: {
@@ -112,6 +124,8 @@ export async function getRoleById(id: string) {
 export async function createRole(
   input: CreateRoleInput
 ): Promise<RoleOperationResult> {
+  await requireAdmin();
+
   try {
     await db.role.create({
       data: {
@@ -141,6 +155,8 @@ export async function updateRole(
   id: string,
   input: UpdateRoleInput
 ): Promise<RoleOperationResult> {
+  await requireAdmin();
+
   try {
     await db.role.update({
       where: { id },
@@ -168,6 +184,8 @@ export async function setRoleStatus(
   id: string,
   isActive: boolean
 ): Promise<RoleOperationResult> {
+  await requireAdmin();
+
   const role = await db.role.findUnique({
     where: { id },
     select: {
@@ -208,6 +226,8 @@ type RoleUsersParams = {
 };
 
 export async function getRoleUsers(params: RoleUsersParams) {
+  await requireAdmin();
+
   const { roleId, pageSize, keyword } = params;
 
   const role = await getRoleById(roleId);
@@ -263,6 +283,8 @@ export async function getRoleUsers(params: RoleUsersParams) {
 }
 
 export async function getAvailableRoleUsers(params: RoleUsersParams) {
+  await requireAdmin();
+
   const { roleId, pageSize, keyword } = params;
 
   const where: Prisma.UserWhereInput = {
@@ -308,6 +330,8 @@ export async function getAvailableRoleUsers(params: RoleUsersParams) {
 }
 
 export async function addUserToRole(roleId: string, userId: string) {
+  await requireAdmin();
+
   const [role, user] = await Promise.all([
     db.role.findUnique({
       where: { id: roleId },
@@ -344,6 +368,8 @@ export async function addUserToRole(roleId: string, userId: string) {
 }
 
 export async function removeUserFromRole(roleId: string, userId: string) {
+  await requireAdmin();
+
   await db.userRole.deleteMany({
     where: {
       roleId,

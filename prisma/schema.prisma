@@ -91,7 +91,7 @@ model Verification {
 }
 
 model Role {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   code        String   @unique
   name        String
   description String?
@@ -100,16 +100,17 @@ model Role {
   // 角色是否启用
   isActive    Boolean  @default(true)
 
+  // 固定角色的展示顺序，数值越小越靠前
+  sort        Int      @default(0)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   userRoles   UserRole[]
-
-  @@index([name])
 }
 
 model UserRole {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
 
   userId    String
   roleId    String

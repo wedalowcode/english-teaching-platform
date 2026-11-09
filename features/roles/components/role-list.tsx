@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 
 import { ListPagination } from "@/components/shared/list-pagination";
+import { formatDateTime } from "@/lib/date";
 
 import { roleListQuerySchema } from "@/features/roles/schemas";
 import { getRoleList } from "@/features/roles/service";
@@ -120,7 +121,7 @@ export async function RoleList({
                 </TableCell>
 
                 <TableCell>
-                  {role.createdAt.toLocaleDateString("zh-CN")}
+                  {formatDateTime(role.createdAt)}
                 </TableCell>
 
                 <TableCell className="text-right">

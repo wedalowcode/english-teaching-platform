@@ -43,7 +43,7 @@ export const updateRoleSchema = z.object({
   description: roleDescriptionField,
 });
 
-export type RoleListParams = z.infer<typeof roleListQuerySchema>;
+export type RoleListQuery = z.infer<typeof roleListQuerySchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
 

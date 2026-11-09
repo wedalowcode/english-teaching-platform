@@ -3,7 +3,7 @@ import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 
 import { RoleList } from "@/features/roles/components/role-list";
 
-import { requireCurrentUser } from "@/server/auth/session";
+import { requireAdmin } from "@/lib/auth-guard";
 
 // 会话校验需要阻塞渲染
 export const instant = false;
@@ -13,7 +13,7 @@ type Props = {
 };
 
 export default async function RolesPage({ searchParams }: Props) {
-  await requireCurrentUser();
+  await requireAdmin();
 
   return (
     <div className="space-y-6">

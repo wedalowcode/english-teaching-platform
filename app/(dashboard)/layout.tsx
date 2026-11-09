@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AdminTopbar } from "@/components/layout/admin-topbar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { requireCurrentUser } from "@/server/auth/session";
+import { requireAdmin } from "@/lib/auth-guard";
 
 // 鉴权需要在渲染前完成，允许布局阻塞首个响应
 export const instant = false;
@@ -16,7 +16,7 @@ type DashboardLayoutProps = {
 export default async function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
-  const user = await requireCurrentUser();
+  const user = await requireAdmin();
 
   return (
     <SidebarProvider>

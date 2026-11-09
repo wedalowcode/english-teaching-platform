@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth-guard";
 import type { Prisma, UserStatus } from "@/app/generated/prisma/client";
 import { hashPassword } from "@/lib/password";
 import type { CreateUserInput, UpdateUserInput } from "./schemas";
@@ -65,6 +66,8 @@ const USER_HAS_RELATIONS = {
 } as const;
 
 export async function getUserList(params: UserListParams) {
+  await requireAdmin();
+
   const { pageSize, keyword } = params;
 
   const where: Prisma.UserWhereInput = keyword
@@ -108,6 +111,8 @@ export async function getUserList(params: UserListParams) {
 }
 
 export async function createUser(input: CreateUserInput) {
+  await requireAdmin();
+
   const userId = crypto.randomUUID();
   const passwordHash = await hashPassword(input.password);
 
@@ -149,6 +154,8 @@ export async function createUser(input: CreateUserInput) {
 }
 
 export async function getUserById(id: string) {
+  await requireAdmin();
+
   return db.user.findUnique({
     where: { id },
     select: {
@@ -162,6 +169,8 @@ export async function getUserById(id: string) {
 }
 
 export async function getRoleOptions() {
+  await requireAdmin();
+
   return db.role.findMany({
     select: {
       id: true,
@@ -174,6 +183,8 @@ export async function getRoleOptions() {
 }
 
 export async function updateUserRoles(userId: string, roleIds: string[]) {
+  await requireAdmin();
+
   const ids = [...new Set(roleIds)];
 
   return db.$transaction(async (tx) => {
@@ -217,6 +228,8 @@ export async function updateUser(
   id: string,
   input: UpdateUserInput
 ): Promise<UserOperationResult> {
+  await requireAdmin();
+
   try {
     await db.user.update({
       where: { id },
@@ -265,6 +278,8 @@ export async function resetUserPassword(
   id: string,
   password: string
 ): Promise<UserOperationResult> {
+  await requireAdmin();
+
   const user = await db.user.findUnique({
     where: { id },
     select: { id: true },
@@ -310,12 +325,19 @@ export async function setUserStatus(
   id: string,
   status: UserStatus
 ): Promise<UserOperationResult> {
+  await requireAdmin();
+
   try {
     await db.user.update({
       where: { id },
       data: { status },
       select: { id: true },
     });
+
+    if (status === "DISABLED") {
+      // 停用后立即撤销该用户已有会话，不必等 Cookie 过期
+      await db.session.deleteMany({ where: { userId: id } });
+    }
 
     return {
       success: true,
@@ -332,6 +354,8 @@ export async function setUserStatus(
 export async function deleteUser(
   id: string
 ): Promise<UserOperationResult> {
+  await requireAdmin();
+
   try {
     await db.user.delete({
       where: { id },
