@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Circle, ShieldCheck, Users } from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -15,9 +17,20 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import { adminMenus } from "./menu-config";
+import type { LucideIcon } from "lucide-react";
 
-export function AdminSidebar() {
+import type { MenuGroup } from "./menu-config";
+
+const MENU_ICONS: Record<string, LucideIcon> = {
+  users: Users,
+  "shield-check": ShieldCheck,
+};
+
+type AdminSidebarProps = {
+  menus: MenuGroup[];
+};
+
+export function AdminSidebar({ menus }: AdminSidebarProps) {
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -43,7 +56,7 @@ export function AdminSidebar() {
 
       <SidebarContent>
         <nav aria-label="后台主菜单">
-          {adminMenus.map((group) => (
+          {menus.map((group) => (
             <SidebarGroup key={group.title}>
               <SidebarGroupLabel className="text-xs font-semibold tracking-wide text-sidebar-foreground/60">
                 {group.title}
@@ -53,7 +66,7 @@ export function AdminSidebar() {
                 <SidebarMenu>
                   {group.items.map((item) => {
                     const active = isActive(item.href);
-                    const Icon = item.icon;
+                    const Icon = MENU_ICONS[item.icon] ?? Circle;
 
                     return (
                       <SidebarMenuItem key={item.href}>

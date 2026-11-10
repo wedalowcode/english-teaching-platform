@@ -17,24 +17,31 @@ enum UserStatus {
   DISABLED
 }
 
+enum DataScope {
+  ALL
+  OWN
+  ASSIGNED
+}
+
 model User {
-  id            String     @id
+  id            String  @id
   name          String
-  email         String     @unique
-  emailVerified Boolean    @default(false)
+  email         String  @unique
+  emailVerified Boolean @default(false)
   image         String?
 
-  username      String?    @unique
-  phone         String?
-  status        UserStatus @default(ACTIVE)
+  username String?    @unique
+  phone    String?
+  status   UserStatus @default(ACTIVE)
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sessions      Session[]
-  accounts      Account[]
+  sessions Session[]
+  accounts Account[]
 
-  userRoles     UserRole[]
+  userRoles UserRole[]
+  auditLogs AuditLog[]
 }
 
 model Session {
@@ -48,32 +55,32 @@ model Session {
   ipAddress String?
   userAgent String?
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Account {
-  id                    String    @id
-  accountId             String
-  providerId            String
+  id         String @id
+  accountId  String
+  providerId String
 
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
+  accessToken  String?
+  refreshToken String?
+  idToken      String?
 
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
 
-  scope                 String?
-  password              String?
+  scope    String?
+  password String?
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
@@ -84,42 +91,89 @@ model Verification {
   value      String
   expiresAt  DateTime
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([identifier])
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  code        String   @unique
+  id          String  @id @default(uuid())
+  code        String  @unique
   name        String
   description String?
-  isSystem    Boolean  @default(false)
+  isSystem    Boolean @default(false)
 
   // 角色是否启用
-  isActive    Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // 固定角色的展示顺序，数值越小越靠前
-  sort        Int      @default(0)
+  sort Int @default(0)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userRoles   UserRole[]
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
 }
 
 model UserRole {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId    String
-  roleId    String
+  userId String
+  roleId String
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@unique([userId, roleId])
   @@index([roleId])
+}
+
+model RolePermission {
+  id String @id @default(uuid())
+
+  roleId String
+
+  // 权限编码由 TypeScript 权限目录维护，写入前必须经过目录校验
+  permissionCode String
+
+  // 数据范围不设默认值，漏传时必须显式报错，避免权限意外扩大
+  scope DataScope
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, permissionCode])
+  @@index([permissionCode])
+}
+
+model AuditLog {
+  id String @id @default(uuid())
+
+  actorUserId String?
+  actorName   String
+  actorEmail  String?
+
+  action     String
+  targetType String
+  targetId   String?
+
+  before Json?
+  after  Json?
+
+  ip        String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
 }

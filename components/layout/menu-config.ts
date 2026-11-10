@@ -1,11 +1,14 @@
-import { ShieldCheck, Users } from "lucide-react";
-
-import type { LucideIcon } from "lucide-react";
+import type { PermissionCode } from "@/lib/auth/permissions";
 
 export type MenuItem = {
   title: string;
   href: string;
-  icon: LucideIcon;
+
+  // 图标使用字符串键，避免把组件函数放到配置里跨服务端/客户端传递
+  icon: string;
+
+  // 菜单是否展示由当前用户是否拥有该权限推导
+  permission: PermissionCode;
 };
 
 export type MenuGroup = {
@@ -24,12 +27,14 @@ export const adminMenus: MenuGroup[] = [
       {
         title: "用户管理",
         href: "/admin/users",
-        icon: Users,
+        icon: "users",
+        permission: "user.view",
       },
       {
         title: "角色管理",
         href: "/admin/roles",
-        icon: ShieldCheck,
+        icon: "shield-check",
+        permission: "role.view",
       },
     ],
   },

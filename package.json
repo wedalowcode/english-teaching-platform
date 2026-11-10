@@ -10,6 +10,7 @@
     "postinstall": "prisma skills sync || exit 0",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:admin": "tsx prisma/seed-admin.ts",
+    "db:seed:superadmin": "tsx prisma/seed-super-admin.ts",
     "test": "vitest run"
   },
   "dependencies": {

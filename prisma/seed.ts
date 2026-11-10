@@ -3,6 +3,10 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient, UserStatus } from "../app/generated/prisma/client";
+import {
+  assertDefaultRoleGrants,
+  DEFAULT_ROLE_GRANTS,
+} from "../lib/auth/default-role-grants";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -47,39 +51,45 @@ async function seedRoles() {
    */
   const roles = [
     {
+      code: "SUPER_ADMIN",
+      name: "超级管理员",
+      description: "超级管理员，负责系统配置，不承担具体业务操作",
+      sort: 0,
+    },
+    {
       code: "BOSS",
-      name: "老板",
-      description: "查看经营数据与整体运营情况",
+      name: "企业负责人",
+      description: "企业负责人，查看经营数据与整体运营情况",
       sort: 10,
     },
     {
       code: "ACADEMIC",
-      name: "教务人员",
-      description: "负责学生、课程和教学安排",
+      name: "教务管理",
+      description: "教务管理，负责学生、课程和教学安排",
       sort: 20,
     },
     {
       code: "ADMIN",
       name: "系统管理员",
-      description: "负责系统配置、用户和权限管理",
+      description: "系统管理员，负责系统配置和角色权限管理",
       sort: 30,
     },
     {
       code: "TEACHER",
       name: "教师",
-      description: "负责学生授课和学习记录",
+      description: "教师，负责学生授课和学习记录",
       sort: 40,
+    },
+    {
+      code: "AGENT",
+      name: "代理/合作方",
+      description: "代理或招生合作方，负责招生渠道与线索报备",
+      sort: 50,
     },
     {
       code: "PARENT",
       name: "家长",
-      description: "查看学生学习情况和课程报告",
-      sort: 50,
-    },
-    {
-      code: "AGENT",
-      name: "代理",
-      description: "负责招生渠道与代理合作",
+      description: "家长，查看孩子学习情况和课程报告",
       sort: 60,
     },
   ];
@@ -102,6 +112,50 @@ async function seedRoles() {
   }
 
   console.log(`已初始化 ${roles.length} 个内置角色`);
+}
+
+async function seedRolePermissions() {
+  /**
+   * 权限目录由 lib/auth/permissions.ts 维护，数据库只保存授权结果。
+   *
+   * - 写入前先经过权限目录校验，SYSTEM 权限不允许写入；
+   * - 使用 createMany + skipDuplicates，不覆盖管理员后续调整过的授权；
+   * - 需要撤销默认授权时，通过角色权限管理功能处理，不要改 Seed 反复执行。
+   */
+  assertDefaultRoleGrants();
+
+  const roles = await db.role.findMany();
+
+  const roleIdByCode = new Map(roles.map((role) => [role.code, role.id]));
+
+  const rows: {
+    roleId: string;
+    permissionCode: string;
+    scope: (typeof DEFAULT_ROLE_GRANTS)[number]["scope"];
+  }[] = [];
+
+  for (const grant of DEFAULT_ROLE_GRANTS) {
+    const roleId = roleIdByCode.get(grant.roleCode);
+
+    if (!roleId) {
+      throw new Error(`角色不存在：${grant.roleCode}`);
+    }
+
+    rows.push({
+      roleId,
+      permissionCode: grant.permissionCode,
+      scope: grant.scope,
+    });
+  }
+
+  const created = await db.rolePermission.createMany({
+    data: rows,
+    skipDuplicates: true,
+  });
+
+  console.log(
+    `角色权限初始化完成，新增 ${created.count} 条授权记录`
+  );
 }
 
 async function seedDemoUserRoles() {
@@ -158,9 +212,11 @@ async function seedDemoUserRoles() {
 async function main() {
   await seedDemoUsers();
   await seedRoles();
+  await seedRolePermissions();
   await seedDemoUserRoles();
 
   console.log("初始管理员请单独运行 pnpm db:seed:admin");
+  console.log("超级管理员请单独运行 pnpm db:seed:superadmin");
 }
 
 main()
