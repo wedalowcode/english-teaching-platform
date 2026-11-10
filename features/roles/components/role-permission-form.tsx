@@ -3,15 +3,36 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  Check,
+  ChevronRight,
+  Database,
   Search,
   ShieldCheck,
-  Check,
-  Database,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 import { saveRolePermissionsAction } from "../actions";
 
@@ -44,19 +65,41 @@ const SCOPE_OPTIONS: {
   {
     value: "ALL",
     label: "全部数据",
-    description: "可以访问该资源范围内的全部数据",
+    description: "可以访问全部业务数据",
   },
   {
     value: "OWN",
     label: "本人数据",
-    description: "只能访问本人负责或创建的数据",
+    description: "仅访问本人相关数据",
   },
   {
     value: "ASSIGNED",
     label: "已分配数据",
-    description: "只能访问明确分配给当前用户的数据",
+    description: "仅访问明确分配的数据",
   },
 ];
+
+const RESOURCE_LABELS: Record<string, string> = {
+  portal: "系统入口",
+  user: "用户管理",
+  role: "角色管理",
+  permission: "权限管理",
+  dashboard: "经营仪表盘",
+  lead: "线索管理",
+  leadFollowUp: "跟进记录",
+  enrollment: "报名管理",
+  order: "订单管理",
+  payment: "收款记录",
+  student: "学生管理",
+  course: "课程管理",
+  schedule: "排课管理",
+  teachingRecord: "教学记录",
+  vocabularyRequest: "词汇申请",
+  lessonLedger: "课时账本",
+  teacherAssignment: "教师任务",
+  teacherSettlement: "教师结算",
+  parentReport: "家长报告",
+};
 
 export function RolePermissionForm({
   roleId,
@@ -66,8 +109,12 @@ export function RolePermissionForm({
 }: RolePermissionFormProps) {
   const [pending, startTransition] = useTransition();
 
-  const [keyword, setKeyword] = useState("");
-  const [activeModule, setActiveModule] = useState("全部模块");
+  const [moduleKeyword, setModuleKeyword] = useState("");
+  const [permissionKeyword, setPermissionKeyword] = useState("");
+
+  const [activeModule, setActiveModule] = useState(
+    permissions[0]?.module ?? ""
+  );
 
   const [selected, setSelected] = useState<Record<string, Scope>>(
     Object.fromEntries(
@@ -78,52 +125,68 @@ export function RolePermissionForm({
     )
   );
 
-  // 提取模块列表
-  const modules = useMemo(() => {
-    return [
-      "全部模块",
-      ...Array.from(
-        new Set(permissions.map((item) => item.module))
-      ),
-    ];
-  }, [permissions]);
+  // 模块列表
+  const modules = useMemo(
+    () => Array.from(new Set(permissions.map((item) => item.module))),
+    [permissions]
+  );
 
-  // 搜索和模块过滤
-  const filteredPermissions = useMemo(() => {
-    const search = keyword.trim().toLowerCase();
+  // 模块搜索
+  const visibleModules = useMemo(() => {
+    const keyword = moduleKeyword.trim().toLowerCase();
+
+    if (!keyword) return modules;
+
+    return modules.filter((module) =>
+      module.toLowerCase().includes(keyword)
+    );
+  }, [modules, moduleKeyword]);
+
+  // 当前模块权限
+  const currentPermissions = useMemo(() => {
+    const keyword = permissionKeyword.trim().toLowerCase();
 
     return permissions.filter((item) => {
-      const matchesModule =
-        activeModule === "全部模块" ||
-        item.module === activeModule;
+      if (item.module !== activeModule) return false;
 
-      const matchesKeyword =
-        !search ||
-        item.name.toLowerCase().includes(search) ||
-        item.code.toLowerCase().includes(search) ||
-        item.module.toLowerCase().includes(search) ||
-        item.resource.toLowerCase().includes(search);
-
-      return matchesModule && matchesKeyword;
+      return (
+        !keyword ||
+        item.name.toLowerCase().includes(keyword) ||
+        item.code.toLowerCase().includes(keyword) ||
+        item.resource.toLowerCase().includes(keyword)
+      );
     });
-  }, [permissions, keyword, activeModule]);
+  }, [permissions, activeModule, permissionKeyword]);
 
-  // 按模块分组
-  const groupedPermissions = useMemo(() => {
+  // 按资源分组
+  const resourceGroups = useMemo(() => {
     const groups = new Map<string, Permission[]>();
 
-    for (const permission of filteredPermissions) {
-      const current = groups.get(permission.module) ?? [];
-      current.push(permission);
-      groups.set(permission.module, current);
+    for (const item of currentPermissions) {
+      const items = groups.get(item.resource) ?? [];
+      items.push(item);
+      groups.set(item.resource, items);
     }
 
     return Array.from(groups.entries());
-  }, [filteredPermissions]);
+  }, [currentPermissions]);
+
+  // 模块统计
+  function getModuleStats(module: string) {
+    const items = permissions.filter(
+      (item) => item.module === module
+    );
+
+    return {
+      total: items.length,
+      checked: items.filter((item) => item.code in selected).length,
+    };
+  }
 
   const selectedCount = Object.keys(selected).length;
+  const currentStats = getModuleStats(activeModule);
 
-  // 切换权限
+  // 修改权限
   function togglePermission(code: string, checked: boolean) {
     setSelected((current) => {
       const next = { ...current };
@@ -146,13 +209,40 @@ export function RolePermissionForm({
     }));
   }
 
+  // 全选当前模块
+  function selectCurrentModule() {
+    setSelected((current) => {
+      const next = { ...current };
+
+      permissions
+        .filter((item) => item.module === activeModule)
+        .forEach((item) => {
+          next[item.code] = next[item.code] ?? "ALL";
+        });
+
+      return next;
+    });
+  }
+
+  // 清空当前模块
+  function clearCurrentModule() {
+    setSelected((current) => {
+      const next = { ...current };
+
+      permissions
+        .filter((item) => item.module === activeModule)
+        .forEach((item) => {
+          delete next[item.code];
+        });
+
+      return next;
+    });
+  }
+
   // 保存权限
   function save() {
     const values = Object.entries(selected).map(
-      ([code, scope]) => ({
-        code,
-        scope,
-      })
+      ([code, scope]) => ({ code, scope })
     );
 
     startTransition(async () => {
@@ -174,235 +264,364 @@ export function RolePermissionForm({
   }
 
   return (
-    <div className="space-y-5">
-      {/* 超级管理员说明 */}
+    <div className="space-y-4">
+      {/* 超级管理员提示 */}
       {isSuperAdmin && (
-        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
-          <ShieldCheck className="mt-0.5 size-5 text-primary" />
-
-          <div className="space-y-1">
-            <div className="font-medium">
-              超级管理员内置系统权限
+        <Card className="border-primary/20 bg-primary/[0.03]">
+          <CardContent className="flex items-center gap-3 p-3">
+            <ShieldCheck className="size-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium">
+                超级管理员
+              </p>
+              <p className="text-xs text-muted-foreground">
+                系统内置权限由超级管理员身份自动获得。
+              </p>
             </div>
-
-            <p className="text-sm text-muted-foreground">
-              用户管理、角色管理等系统权限由超级管理员身份自动获得，
-              不需要在此逐项分配。
-            </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* 权限统计 */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
-        <div>
-          <div className="text-sm text-muted-foreground">
-            当前已授权权限
-          </div>
+      {/* 授权统计 */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">
+              已授权权限
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {selectedCount}
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                项
+              </span>
+            </p>
+          </CardContent>
+        </Card>
 
-          <div className="mt-1 text-2xl font-semibold">
-            {selectedCount}
-            <span className="ml-1 text-sm font-normal text-muted-foreground">
-              项
-            </span>
-          </div>
-        </div>
-
-        <div className="text-sm text-muted-foreground">
-          共 {permissions.length} 项可分配权限
-        </div>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">
+              可分配权限
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {permissions.length}
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                项
+              </span>
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 搜索区域 */}
-      <div className="flex flex-col gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      {/* 左侧模块导航 + 右侧权限配置 */}
+      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
+        {/* 模块导航 */}
+        <Card className="md:sticky md:top-4">
+          <CardHeader className="p-3 pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">
+                业务模块
+              </CardTitle>
+              <Badge variant="secondary">
+                {modules.length}
+              </Badge>
+            </div>
 
-          <Input
-            value={keyword}
-            onChange={(event) =>
-              setKeyword(event.target.value)
-            }
-            placeholder="搜索权限名称、权限编码或资源..."
-            className="pl-9"
-          />
-        </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={moduleKeyword}
+                onChange={(event) =>
+                  setModuleKeyword(event.target.value)
+                }
+                placeholder="搜索模块..."
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+          </CardHeader>
 
-        {/* 模块筛选 */}
-        <div className="flex flex-wrap gap-2">
-          {modules.map((module) => (
-            <Button
-              key={module}
-              size="sm"
-              variant={
-                activeModule === module
-                  ? "default"
-                  : "outline"
-              }
-              onClick={() => setActiveModule(module)}
-            >
-              {module}
-            </Button>
-          ))}
-        </div>
-      </div>
+          <Separator />
 
-      {/* 权限列表 */}
-      <div className="space-y-5">
-        {groupedPermissions.map(([module, items]) => {
-          const moduleSelectedCount = items.filter(
-            (item) => item.code in selected
-          ).length;
-
-          return (
-            <section
-              key={module}
-              className="overflow-hidden rounded-lg border bg-card"
-            >
-              {/* 模块标题 */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-4 py-3">
-                <div className="font-semibold">
-                  {module}
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  已授权 {moduleSelectedCount} / {items.length}
-                </div>
-              </div>
-
-              {/* 模块权限 */}
-              <div className="divide-y">
-                {items.map((item) => {
-                  const checked = item.code in selected;
+          <CardContent className="p-2">
+            <ScrollArea className="h-[420px]">
+              <div className="space-y-1 pr-2">
+                {visibleModules.map((module) => {
+                  const stats = getModuleStats(module);
+                  const active = activeModule === module;
 
                   return (
-                    <div
-                      key={item.code}
-                      className="space-y-3 p-4"
+                    <Button
+                      key={module}
+                      type="button"
+                      variant={active ? "secondary" : "ghost"}
+                      className={[
+                        "h-auto w-full justify-between px-2.5 py-2",
+                        active &&
+                          "bg-primary/10 text-primary hover:bg-primary/15",
+                      ].join(" ")}
+                      onClick={() => {
+                        setActiveModule(module);
+                        setPermissionKeyword("");
+                      }}
                     >
-                      {/* 权限主体 */}
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(value) =>
-                            togglePermission(
-                              item.code,
-                              value === true
-                            )
-                          }
-                          className="mt-0.5"
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={[
+                            "size-1.5 shrink-0 rounded-full",
+                            stats.checked > 0
+                              ? "bg-primary"
+                              : "bg-muted-foreground/30",
+                          ].join(" ")}
                         />
+                        <span className="truncate text-xs">
+                          {module}
+                        </span>
+                      </span>
 
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-medium">
-                              {item.name}
-                            </span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                          {stats.checked}/{stats.total}
+                        </span>
+                        <ChevronRight className="size-3.5" />
+                      </span>
+                    </Button>
+                  );
+                })}
 
-                            {checked && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                                <Check className="size-3" />
-                                已授权
-                              </span>
-                            )}
-                          </div>
+                {visibleModules.length === 0 && (
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    没有匹配的模块
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
 
-                          <div className="text-xs text-muted-foreground">
-                            {item.code}
-                          </div>
+        {/* 右侧权限区域 */}
+        <div className="min-w-0 space-y-3">
+          {/* 模块工具栏 */}
+          <Card>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+              <div>
+                <h2 className="text-base font-semibold">
+                  {activeModule || "权限配置"}
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  当前模块已授权 {currentStats.checked} / {currentStats.total} 项
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={selectCurrentModule}
+                  disabled={!activeModule}
+                >
+                  全选
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={clearCurrentModule}
+                  disabled={!activeModule || currentStats.checked === 0}
+                >
+                  清空
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 权限搜索 */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={permissionKeyword}
+              onChange={(event) =>
+                setPermissionKeyword(event.target.value)
+              }
+              placeholder="搜索权限名称、编码或资源..."
+              className="h-9 pl-9"
+            />
+          </div>
+
+          {/* 资源权限分组 */}
+          {resourceGroups.length > 0 ? (
+            <Accordion
+              multiple
+              defaultValue={
+                resourceGroups.length > 0
+                  ? [resourceGroups[0][0]]
+                  : []
+              }
+              className="space-y-2"
+            >
+              {resourceGroups.map(([resource, items]) => {
+                const checkedCount = items.filter(
+                  (item) => item.code in selected
+                ).length;
+
+                return (
+                  <AccordionItem
+                    key={resource}
+                    value={resource}
+                    className="overflow-hidden rounded-lg border bg-card"
+                  >
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline [&>svg]:size-4">
+                      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {RESOURCE_LABELS[resource] ?? resource}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {items.length} 项操作
+                          </span>
                         </div>
+
+                        <Badge variant="outline">
+                          {checkedCount}/{items.length}
+                        </Badge>
                       </div>
+                    </AccordionTrigger>
 
-                      {/* 数据范围配置 */}
-                      {checked && item.scopeable && (
-                        <div className="ml-7 space-y-3 rounded-md bg-muted/30 p-3">
-                          <div className="flex items-center gap-2 text-sm font-medium">
-                            <Database className="size-4 text-muted-foreground" />
-                            数据范围
-                          </div>
+                    <AccordionContent className="pb-0">
+                      <Separator />
 
-                          <div className="grid gap-2 sm:grid-cols-3">
-                            {SCOPE_OPTIONS.map((option) => {
-                              const active =
-                                selected[item.code] ===
-                                option.value;
+                      <div className="divide-y">
+                        {items.map((item) => {
+                          const checked = item.code in selected;
 
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() =>
-                                    changeScope(
+                          return (
+                            <div
+                              key={item.code}
+                              className="px-4 py-3"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(value) =>
+                                    togglePermission(
                                       item.code,
-                                      option.value
+                                      value === true
                                     )
                                   }
-                                  className={[
-                                    "rounded-md border p-3 text-left transition-colors",
-                                    active
-                                      ? "border-primary bg-primary/5"
-                                      : "border-border bg-background hover:bg-muted",
-                                  ].join(" ")}
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm font-medium">
-                                      {option.label}
+                                />
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm">
+                                      {item.name}
                                     </span>
 
-                                    {active && (
-                                      <Check className="size-4 text-primary" />
+                                    {checked && (
+                                      <Badge variant="secondary">
+                                        <Check className="size-3" />
+                                        已授权
+                                      </Badge>
                                     )}
                                   </div>
 
-                                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    {option.description}
+                                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                    {item.code}
                                   </p>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                                </div>
+                              </div>
 
-                      {checked && !item.scopeable && (
-                        <div className="ml-7 text-xs text-muted-foreground">
-                          此权限不支持单独配置数据范围。
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+                              {/* 数据范围 */}
+                              {checked && item.scopeable && (
+                                <div className="ml-7 mt-3 rounded-md bg-muted/30 p-3">
+                                  <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                    <Database className="size-3.5" />
+                                    数据范围
+                                  </div>
 
-        {/* 无搜索结果 */}
-        {filteredPermissions.length === 0 && (
-          <div className="rounded-lg border border-dashed p-10 text-center">
-            <Search className="mx-auto size-8 text-muted-foreground" />
+                                  <RadioGroup
+                                    value={selected[item.code]}
+                                    onValueChange={(value) =>
+                                      changeScope(
+                                        item.code,
+                                        value as Scope
+                                      )
+                                    }
+                                    className="flex flex-wrap gap-x-5 gap-y-2"
+                                  >
+                                    {SCOPE_OPTIONS.map((option) => {
+                                      const id = `scope-${item.code}-${option.value}`;
 
-            <p className="mt-3 text-sm font-medium">
-              没有找到匹配的权限
-            </p>
+                                      return (
+                                        <div
+                                          key={option.value}
+                                          className="flex items-center gap-2"
+                                        >
+                                          <RadioGroupItem
+                                            id={id}
+                                            value={option.value}
+                                          />
+                                          <label
+                                            htmlFor={id}
+                                            className="cursor-pointer text-xs"
+                                          >
+                                            {option.label}
+                                          </label>
+                                        </div>
+                                      );
+                                    })}
+                                  </RadioGroup>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center py-12 text-center">
+                <Search className="size-7 text-muted-foreground/50" />
+                <p className="mt-3 text-sm font-medium">
+                  没有找到匹配的权限
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  请调整搜索关键词
+                </p>
 
-            <p className="mt-1 text-xs text-muted-foreground">
-              请调整搜索条件或切换业务模块
-            </p>
-          </div>
-        )}
+                {permissionKeyword && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2"
+                    onClick={() => setPermissionKeyword("")}
+                  >
+                    <X className="size-4" />
+                    清除搜索
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
-      {/* 底部操作 */}
-      <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t bg-background/95 py-4 backdrop-blur">
+      {/* 底部保存区域 */}
+      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t bg-background/95 py-3 backdrop-blur">
         <div className="text-sm text-muted-foreground">
-          已选择 {selectedCount} 项权限
+          已选择
+          <span className="mx-1 font-semibold text-foreground">
+            {selectedCount}
+          </span>
+          项权限
         </div>
 
-        <Button
-          onClick={save}
-          disabled={pending}
-        >
+        <Button onClick={save} disabled={pending}>
           {pending ? "正在保存..." : "保存权限配置"}
         </Button>
       </div>
