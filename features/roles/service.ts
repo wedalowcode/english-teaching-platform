@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePagePermission } from "@/lib/auth/authorization";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 import type {
@@ -15,7 +15,7 @@ type RoleListParams = RoleListQuery & {
 };
 
 export async function getRoleList(params: RoleListParams) {
-  await requireAdmin();
+  await requirePagePermission("role.view");
 
   const { pageSize, keyword } = params;
 
@@ -106,7 +106,7 @@ function getErrorCode(error: unknown): string | undefined {
 }
 
 export async function getRoleById(id: string) {
-  await requireAdmin();
+  await requirePagePermission("role.view");
 
   return db.role.findUnique({
     where: { id },
@@ -124,7 +124,7 @@ export async function getRoleById(id: string) {
 export async function createRole(
   input: CreateRoleInput
 ): Promise<RoleOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("role.create");
 
   try {
     await db.role.create({
@@ -155,7 +155,7 @@ export async function updateRole(
   id: string,
   input: UpdateRoleInput
 ): Promise<RoleOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("role.edit");
 
   try {
     await db.role.update({
@@ -184,7 +184,7 @@ export async function setRoleStatus(
   id: string,
   isActive: boolean
 ): Promise<RoleOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("role.disable");
 
   const role = await db.role.findUnique({
     where: { id },
@@ -226,7 +226,7 @@ type RoleUsersParams = {
 };
 
 export async function getRoleUsers(params: RoleUsersParams) {
-  await requireAdmin();
+  await requirePagePermission("role.assignUser");
 
   const { roleId, pageSize, keyword } = params;
 
@@ -283,7 +283,7 @@ export async function getRoleUsers(params: RoleUsersParams) {
 }
 
 export async function getAvailableRoleUsers(params: RoleUsersParams) {
-  await requireAdmin();
+  await requirePagePermission("role.assignUser");
 
   const { roleId, pageSize, keyword } = params;
 
@@ -330,7 +330,7 @@ export async function getAvailableRoleUsers(params: RoleUsersParams) {
 }
 
 export async function addUserToRole(roleId: string, userId: string) {
-  await requireAdmin();
+  await requirePagePermission("role.assignUser");
 
   const [role, user] = await Promise.all([
     db.role.findUnique({
@@ -368,7 +368,7 @@ export async function addUserToRole(roleId: string, userId: string) {
 }
 
 export async function removeUserFromRole(roleId: string, userId: string) {
-  await requireAdmin();
+  await requirePagePermission("role.assignUser");
 
   await db.userRole.deleteMany({
     where: {

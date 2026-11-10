@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUserAdmin } from "@/lib/auth-guard";
+import { requirePagePermission } from "@/lib/auth/authorization";
 import type { UserStatus } from "@/app/generated/prisma/client";
 import {
   createUserSchema,
@@ -27,7 +27,7 @@ export async function createUserAction(
   _prevState: CreateUserState,
   formData: FormData
 ): Promise<CreateUserState> {
-  await requireUserAdmin();
+  await requirePagePermission("user.create");
 
   const values = {
     name: String(formData.get("name") ?? ""),
@@ -79,7 +79,7 @@ export async function updateUserAction(
   _prevState: UpdateUserState,
   formData: FormData
 ): Promise<UpdateUserState> {
-  await requireUserAdmin();
+  await requirePagePermission("user.edit");
 
   const values = {
     name: String(formData.get("name") ?? ""),
@@ -122,7 +122,7 @@ export async function resetUserPasswordAction(
   _prevState: ResetPasswordState,
   formData: FormData
 ): Promise<ResetPasswordState> {
-  await requireUserAdmin();
+  await requirePagePermission("user.resetPassword");
 
   const values = {
     password: String(formData.get("password") ?? ""),
@@ -161,7 +161,7 @@ export async function setUserStatusAction(
   id: string,
   status: UserStatus
 ): Promise<UserActionResult> {
-  await requireUserAdmin();
+  await requirePagePermission("user.disable");
 
   if (status !== "ACTIVE" && status !== "DISABLED") {
     return {
@@ -182,7 +182,7 @@ export async function setUserStatusAction(
 export async function deleteUserAction(
   id: string
 ): Promise<UserActionResult> {
-  await requireUserAdmin();
+  await requirePagePermission("user.delete");
 
   const result = await deleteUser(id);
 
@@ -197,7 +197,7 @@ export async function updateUserRolesAction(
   userId: string,
   formData: FormData
 ) {
-  await requireUserAdmin();
+  await requirePagePermission("user.assignRole");
 
   const parsed = userRoleAssignmentSchema.safeParse({
     roleIds: formData.getAll("roleIds").map(String),

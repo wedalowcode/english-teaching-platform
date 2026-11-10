@@ -3,37 +3,47 @@
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
-export function SignOutButton() {
+type Props = {
+  showLabel?: boolean;
+};
+
+export function SignOutButton({ showLabel = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleSignOut() {
     setLoading(true);
 
-    const result = await authClient.signOut();
+    try {
+      const result = await authClient.signOut();
 
-    if (result.error) {
+      if (result.error) {
+        toast.error("退出登录失败，请重试");
+        return;
+      }
+
+      router.replace("/login");
+      router.refresh();
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.replace("/login");
-    router.refresh();
   }
 
   return (
     <Button
       variant="ghost"
-      size="icon-sm"
+      size={showLabel ? "default" : "icon-sm"}
       onClick={handleSignOut}
       disabled={loading}
       aria-label="退出登录"
     >
       <LogOut />
+      {showLabel && <span>退出登录</span>}
     </Button>
   );
 }

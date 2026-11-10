@@ -26,7 +26,7 @@ const {
   userRoleUpsert: vi.fn(),
   userRoleDeleteMany: vi.fn(),
   userFindUnique: vi.fn(),
-  requireAdmin: vi.fn().mockResolvedValue({ id: "current-user" }),
+  requireAdmin: vi.fn().mockResolvedValue({ userId: "current-user" }),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -49,8 +49,8 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/lib/auth-guard", () => ({
-  requireAdmin,
+vi.mock("@/lib/auth/authorization", () => ({
+  requirePagePermission: requireAdmin,
 }));
 
 describe("getRoleList", () => {

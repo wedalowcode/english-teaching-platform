@@ -118,7 +118,11 @@ export async function checkPermission(
 }
 
 /**
- * 页面权限保护：未登录跳转登录页，无权限时由页面决定渲染 403。
+ * 页面和服务端操作的权限守卫：
+ * 未登录跳转登录页，无权限统一跳转 403 页面。
+ *
+ * 每个页面、每个 Service/Action 都声明自己需要的权限编码，
+ * 不再使用笼统的管理员守卫。
  */
 export async function requirePagePermission(permissionCode: PermissionCode) {
   const decision = await checkPermission(permissionCode);
@@ -127,15 +131,9 @@ export async function requirePagePermission(permissionCode: PermissionCode) {
     redirect("/login");
   }
 
-  if (!decision.allowed) {
-    return {
-      allowed: false as const,
-      actor: decision.actor,
-    };
+  if (!decision.allowed || !decision.actor) {
+    redirect("/forbidden");
   }
 
-  return {
-    allowed: true as const,
-    actor: decision.actor!,
-  };
+  return decision.actor;
 }

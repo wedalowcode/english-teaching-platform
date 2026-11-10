@@ -75,8 +75,8 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/password", () => ({ hashPassword }));
-vi.mock("@/lib/auth-guard", () => ({
-  requireAdmin: vi.fn().mockResolvedValue({ id: "current-user" }),
+vi.mock("@/lib/auth/authorization", () => ({
+  requirePagePermission: vi.fn().mockResolvedValue({ userId: "current-user" }),
 }));
 
 describe("getUserList", () => {

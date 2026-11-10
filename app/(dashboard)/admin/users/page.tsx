@@ -8,7 +8,7 @@ import {
   UserList,
   UserListSkeleton,
 } from "@/features/users/components/user-list";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePagePermission } from "@/lib/auth/authorization";
 
 // 会话校验需要阻塞渲染，先确认身份再输出页面数据
 export const instant = false;
@@ -18,7 +18,7 @@ type Props = {
 };
 
 export default async function UsersPage({ searchParams }: Props) {
-  await requireAdmin();
+  await requirePagePermission("user.view");
 
   return (
     <div className="space-y-6">

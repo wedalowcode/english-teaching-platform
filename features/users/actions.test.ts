@@ -13,7 +13,9 @@ const { requireUserAdmin, revalidatePath, setUserStatus, deleteUser } =
     deleteUser: vi.fn(),
   }));
 
-vi.mock("@/lib/auth-guard", () => ({ requireUserAdmin }));
+vi.mock("@/lib/auth/authorization", () => ({
+  requirePagePermission: requireUserAdmin,
+}));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("./service", () => ({

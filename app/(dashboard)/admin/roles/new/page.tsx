@@ -5,12 +5,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 
 import { RoleForm } from "@/features/roles/components/role-form";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePagePermission } from "@/lib/auth/authorization";
 
 export const instant = false;
 
 export default async function NewRolePage() {
-  await requireAdmin();
+  await requirePagePermission("role.create");
 
   return (
     <div className="space-y-6">

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireUserAdmin } from "@/lib/auth-guard";
+import { requirePagePermission } from "@/lib/auth/authorization";
 
 import {
   createRoleSchema,
@@ -29,7 +29,7 @@ export async function createRoleAction(
   _prevState: RoleFormState,
   formData: FormData
 ): Promise<RoleFormState> {
-  await requireUserAdmin();
+  await requirePagePermission("role.create");
 
   const values = {
     code: String(formData.get("code") ?? ""),
@@ -67,7 +67,7 @@ export async function updateRoleAction(
   _prevState: RoleFormState,
   formData: FormData
 ): Promise<RoleFormState> {
-  await requireUserAdmin();
+  await requirePagePermission("role.edit");
 
   const values = {
     name: String(formData.get("name") ?? ""),
@@ -101,7 +101,7 @@ export async function setRoleStatusAction(
   id: string,
   isActive: boolean
 ): Promise<RoleActionResult> {
-  await requireUserAdmin();
+  await requirePagePermission("role.disable");
 
   if (typeof isActive !== "boolean") {
     return {
@@ -123,7 +123,7 @@ export async function addUserToRoleAction(
   roleId: string,
   userId: string
 ): Promise<RoleActionResult> {
-  await requireUserAdmin();
+  await requirePagePermission("role.assignUser");
 
   if (!roleId || !userId) {
     return {
@@ -145,7 +145,7 @@ export async function removeUserFromRoleAction(
   roleId: string,
   userId: string
 ): Promise<RoleActionResult> {
-  await requireUserAdmin();
+  await requirePagePermission("role.assignUser");
 
   if (!roleId || !userId) {
     return {

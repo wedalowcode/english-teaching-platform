@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePagePermission } from "@/lib/auth/authorization";
 import type { Prisma, UserStatus } from "@/app/generated/prisma/client";
 import { hashPassword } from "@/lib/password";
 import type { CreateUserInput, UpdateUserInput } from "./schemas";
@@ -66,7 +66,7 @@ const USER_HAS_RELATIONS = {
 } as const;
 
 export async function getUserList(params: UserListParams) {
-  await requireAdmin();
+  await requirePagePermission("user.view");
 
   const { pageSize, keyword } = params;
 
@@ -111,7 +111,7 @@ export async function getUserList(params: UserListParams) {
 }
 
 export async function createUser(input: CreateUserInput) {
-  await requireAdmin();
+  await requirePagePermission("user.create");
 
   const userId = crypto.randomUUID();
   const passwordHash = await hashPassword(input.password);
@@ -154,7 +154,7 @@ export async function createUser(input: CreateUserInput) {
 }
 
 export async function getUserById(id: string) {
-  await requireAdmin();
+  await requirePagePermission("user.view");
 
   return db.user.findUnique({
     where: { id },
@@ -169,7 +169,7 @@ export async function getUserById(id: string) {
 }
 
 export async function getRoleOptions() {
-  await requireAdmin();
+  await requirePagePermission("user.assignRole");
 
   return db.role.findMany({
     select: {
@@ -183,7 +183,7 @@ export async function getRoleOptions() {
 }
 
 export async function updateUserRoles(userId: string, roleIds: string[]) {
-  await requireAdmin();
+  await requirePagePermission("user.assignRole");
 
   const ids = [...new Set(roleIds)];
 
@@ -228,7 +228,7 @@ export async function updateUser(
   id: string,
   input: UpdateUserInput
 ): Promise<UserOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("user.edit");
 
   try {
     await db.user.update({
@@ -278,7 +278,7 @@ export async function resetUserPassword(
   id: string,
   password: string
 ): Promise<UserOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("user.resetPassword");
 
   const user = await db.user.findUnique({
     where: { id },
@@ -325,7 +325,7 @@ export async function setUserStatus(
   id: string,
   status: UserStatus
 ): Promise<UserOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("user.disable");
 
   try {
     await db.user.update({
@@ -354,7 +354,7 @@ export async function setUserStatus(
 export async function deleteUser(
   id: string
 ): Promise<UserOperationResult> {
-  await requireAdmin();
+  await requirePagePermission("user.delete");
 
   try {
     await db.user.delete({

@@ -42,7 +42,8 @@ export function LoginForm() {
         return;
       }
 
-      router.replace("/admin/users");
+      // 登录成功后统一进入根路径，由服务端入口分发器决定进入哪个门户
+      router.replace("/");
       router.refresh();
     } catch {
       setError("登录失败，请稍后重试");
