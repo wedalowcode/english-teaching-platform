@@ -8,7 +8,6 @@ import {
   SYSTEM_ROLE_CODES,
 } from "@/lib/auth/permissions";
 import type { Prisma } from "@/app/generated/prisma/client";
-import type { PermissionCode } from "@/lib/auth/permissions";
 
 import type {
   CreateRoleInput,
@@ -389,8 +388,9 @@ export async function removeUserFromRole(roleId: string, userId: string) {
 /**
  * 角色权限配置页数据。
  *
- * 只展示已经实现并开放授权的功能。
- * 未来业务模块完成后，通过 ROLE_ASSIGNABLE_PERMISSION_CODES 扩展。
+ * 只返回已经实现并开放授权的业务权限。
+ * SYSTEM 权限由系统规则控制，不参与普通权限分配。
+ * 前端根据 isSuperAdmin 标识展示系统内置权限说明。
  */
 export async function getRolePermissionConfig(roleId: string) {
   await requirePagePermission("role.assignPermissions");
@@ -416,22 +416,11 @@ export async function getRolePermissionConfig(roleId: string) {
       code,
       name: item.name,
       module: item.module,
+      resource: item.resource,
+      action: item.action,
       scopeable: item.scopeable,
     };
   });
-
-  // 超级管理员的 SYSTEM 权限由授权规则内置，
-  // 配置页只用于展示，不参与勾选保存
-  const systemPermissions =
-    role.code === SYSTEM_ROLE_CODES.SUPER_ADMIN
-      ? Object.entries(PERMISSIONS)
-          .filter(([, item]) => item.domain === "SYSTEM")
-          .map(([code, item]) => ({
-            code: code as PermissionCode,
-            name: item.name,
-            module: item.module,
-          }))
-      : [];
 
   const assigned = await db.rolePermission.findMany({
     where: {
@@ -449,7 +438,7 @@ export async function getRolePermissionConfig(roleId: string) {
   return {
     role,
     permissions,
-    systemPermissions,
     assigned,
+    isSuperAdmin: role.code === SYSTEM_ROLE_CODES.SUPER_ADMIN,
   };
 }

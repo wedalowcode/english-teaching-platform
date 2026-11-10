@@ -13,10 +13,11 @@ export default async function RolePermissionsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
   const result = await getRolePermissionConfig(id);
 
-  if (!result) notFound();
+  if (!result) {
+    notFound();
+  }
 
   return (
     <div className="space-y-6">
@@ -28,8 +29,8 @@ export default async function RolePermissionsPage({
       <RolePermissionForm
         roleId={id}
         permissions={result.permissions}
-        systemPermissions={result.systemPermissions}
         assigned={result.assigned}
+        isSuperAdmin={result.isSuperAdmin}
       />
     </div>
   );

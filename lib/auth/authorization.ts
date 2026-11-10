@@ -35,9 +35,9 @@ export type PermissionDecision = {
  * 纯权限判断：基于已经解析出的当前用户上下文计算是否放行。
  *
  * 规则：
- * 1. SYSTEM 权限只允许有效 SUPER_ADMIN 通过特殊授权规则获得；
- * 2. SYSTEM 权限不允许通过 RolePermission 授予普通角色；
- * 3. BUSINESS 权限必须存在有效授权，不因为 SUPER_ADMIN 身份自动放行；
+ * 1. 有效 SUPER_ADMIN 通过内置规则自动获得所有 SYSTEM 权限（无需写入 RolePermission）；
+ * 2. 所有其他角色（包括其他 SYSTEM 域权限）必须通过 RolePermission 表获得授权；
+ * 3. 权限 domain 仅用于区分 SUPER_ADMIN 内置绕过范围，不限制普通角色通过分配获得；
  * 4. 多角色授权取并集，数据范围由调用方通过 getPermissionScopes 合并。
  */
 export function evaluatePermission(
@@ -55,7 +55,7 @@ export function evaluatePermission(
     };
   }
 
-  // 超级管理员只绕过 SYSTEM 权限
+  // 有效 SUPER_ADMIN 对所有 SYSTEM 权限内置绕过，无需写入 RolePermission
   if (
     permission.domain === "SYSTEM" &&
     actor.activeRoleCodes.includes(SYSTEM_ROLE_CODES.SUPER_ADMIN)
@@ -67,16 +67,7 @@ export function evaluatePermission(
     };
   }
 
-  // SYSTEM 权限不允许普通角色通过 RolePermission 获得
-  if (permission.domain === "SYSTEM") {
-    return {
-      allowed: false,
-      actor,
-      scopes: [],
-      reason: "FORBIDDEN",
-    };
-  }
-
+  // BUSINESS 权限 + 非超管角色的 SYSTEM 权限：统一通过 RolePermission 判断
   const scopes = actor.grants
     .filter((grant) => grant.permissionCode === permissionCode)
     .map((grant) => grant.scope);

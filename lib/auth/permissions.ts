@@ -660,10 +660,30 @@ export type PermissionCode = keyof typeof PERMISSION_BASE;
  * 注意：
  * 1. 权限目录可以提前定义未来业务权限；
  * 2. 只有业务功能真正实现后，才能加入此列表；
- * 3. SYSTEM 权限由超级管理员规则控制，不加入此列表。
+ * 3. 此列表同时是前端权限配置页的展示边界和后端保存的校验边界；
+ * 4. domain 分类仅用于 SUPER_ADMIN 内置绕过，不限制普通角色通过分配获得 SYSTEM 权限。
  */
 export const ROLE_ASSIGNABLE_PERMISSION_CODES = [
+  // 统一后台入口
   "portal.admin",
+
+  // 用户管理
+  "user.view",
+  "user.create",
+  "user.edit",
+  "user.delete",
+  "user.disable",
+  "user.resetPassword",
+  "user.assignRole",
+
+  // 角色管理
+  "role.view",
+  "role.create",
+  "role.edit",
+  "role.delete",
+  "role.disable",
+  "role.assignUser",
+  "role.assignPermissions",
 ] as const satisfies readonly PermissionCode[];
 
 export type PermissionDefinition = PermissionDefinitionBase & {
