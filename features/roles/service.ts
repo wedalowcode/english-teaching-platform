@@ -2,7 +2,9 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/authorization";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 import type { Prisma } from "@/app/generated/prisma/client";
+import type { PermissionCode } from "@/lib/auth/permissions";
 
 import type {
   CreateRoleInput,
@@ -378,4 +380,55 @@ export async function removeUserFromRole(roleId: string, userId: string) {
   });
 
   return { success: true as const };
+}
+
+/**
+ * 角色权限配置页数据。
+ *
+ * - 权限名称、模块和是否支持数据范围全部来自 PERMISSIONS 权限目录；
+ * - 只展示允许分配的 BUSINESS 权限，SYSTEM 权限不开放勾选；
+ * - 读取已有授权时同样限定在可分配权限内。
+ */
+export async function getRolePermissionConfig(roleId: string) {
+  await requirePagePermission("role.assignPermissions");
+
+  const role = await db.role.findUnique({
+    where: { id: roleId },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      isSystem: true,
+    },
+  });
+
+  if (!role) return null;
+
+  const permissions = Object.entries(PERMISSIONS)
+    .filter(([, item]) => item.domain === "BUSINESS" && item.grantable)
+    .map(([code, item]) => ({
+      code: code as PermissionCode,
+      name: item.name,
+      module: item.module,
+      scopeable: item.scopeable,
+    }));
+
+  const assigned = await db.rolePermission.findMany({
+    where: {
+      roleId,
+      permissionCode: {
+        in: permissions.map((item) => item.code),
+      },
+    },
+    select: {
+      permissionCode: true,
+      scope: true,
+    },
+  });
+
+  return {
+    role,
+    permissions,
+    assigned,
+  };
 }

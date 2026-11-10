@@ -77,6 +77,12 @@ export function RoleAccountActions({
         >
           分配用户
         </DropdownMenuItem>
+
+        <DropdownMenuItem
+          render={<Link href={`/admin/roles/${roleId}/permissions`} />}
+        >
+          分配权限
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

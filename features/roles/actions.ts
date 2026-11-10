@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { DataScope } from "@/app/generated/prisma/client";
 import { requirePagePermission } from "@/lib/auth/authorization";
+import { PERMISSIONS } from "@/lib/auth/permissions";
+import { db } from "@/lib/db";
+import type { PermissionCode } from "@/lib/auth/permissions";
 
 import {
   createRoleSchema,
@@ -161,4 +165,97 @@ export async function removeUserFromRoleAction(
   revalidatePath("/admin/users");
 
   return result;
+}
+
+const permissionItemSchema = z.object({
+  code: z.string(),
+  scope: z.enum(["ALL", "OWN", "ASSIGNED"]),
+});
+
+const savePermissionsSchema = z.array(permissionItemSchema);
+
+/**
+ * 保存角色权限配置。
+ *
+ * - 只允许分配 BUSINESS 且 grantable 的权限，SYSTEM 权限直接拒绝；
+ * - 不支持数据范围的权限只能保存为 ALL；
+ * - 事务内先删后写，删除范围限定在当前可分配权限编码内。
+ */
+export async function saveRolePermissionsAction(
+  roleId: string,
+  values: unknown
+): Promise<RoleActionResult> {
+  await requirePagePermission("role.assignPermissions");
+
+  const parsed = savePermissionsSchema.safeParse(values);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: "权限配置参数不正确",
+    };
+  }
+
+  const allowedCodes = Object.entries(PERMISSIONS)
+    .filter(([, item]) => item.domain === "BUSINESS" && item.grantable)
+    .map(([code]) => code);
+
+  const items = parsed.data;
+
+  if (
+    new Set(items.map((item) => item.code)).size !== items.length ||
+    items.some((item) => !allowedCodes.includes(item.code))
+  ) {
+    return {
+      success: false,
+      message: "包含重复或不允许分配的权限",
+    };
+  }
+
+  for (const item of items) {
+    const permission = PERMISSIONS[item.code as PermissionCode];
+
+    if (!permission.scopeable && item.scope !== "ALL") {
+      return {
+        success: false,
+        message: `${permission.name}不支持配置数据范围`,
+      };
+    }
+  }
+
+  const role = await db.role.findUnique({
+    where: { id: roleId },
+    select: { id: true },
+  });
+
+  if (!role) {
+    return {
+      success: false,
+      message: "角色不存在",
+    };
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.rolePermission.deleteMany({
+      where: {
+        roleId,
+        permissionCode: { in: allowedCodes },
+      },
+    });
+
+    if (items.length > 0) {
+      await tx.rolePermission.createMany({
+        data: items.map((item) => ({
+          roleId,
+          permissionCode: item.code,
+          scope: item.scope as DataScope,
+        })),
+      });
+    }
+  });
+
+  revalidatePath("/admin/roles");
+  revalidatePath(`/admin/roles/${roleId}/permissions`);
+
+  return { success: true };
 }
