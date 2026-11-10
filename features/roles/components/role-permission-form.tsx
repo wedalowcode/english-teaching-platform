@@ -17,9 +17,16 @@ type Permission = {
 
 type Scope = "ALL" | "OWN" | "ASSIGNED";
 
+type SystemPermission = {
+  code: string;
+  name: string;
+  module: string;
+};
+
 type RolePermissionFormProps = {
   roleId: string;
   permissions: Permission[];
+  systemPermissions?: SystemPermission[];
   assigned: {
     permissionCode: string;
     scope: Scope;
@@ -35,6 +42,7 @@ const SCOPE_LABELS: Record<Scope, string> = {
 export function RolePermissionForm({
   roleId,
   permissions,
+  systemPermissions = [],
   assigned,
 }: RolePermissionFormProps) {
   const [pending, startTransition] = useTransition();
@@ -90,8 +98,39 @@ export function RolePermissionForm({
   // 按权限目录中的模块分组展示，不把所有权限混在一起
   const groups = Object.groupBy(permissions, (item) => item.module);
 
+  const systemGroups = Object.groupBy(
+    systemPermissions,
+    (item) => item.module
+  );
+
   return (
     <div className="space-y-6">
+      {systemPermissions.length > 0 && (
+        <section className="space-y-4 rounded-lg border bg-card p-4">
+          <div className="space-y-1">
+            <h3 className="font-semibold">系统权限</h3>
+            <p className="text-sm text-muted-foreground">
+              超级管理员内置权限，由系统规则授予，无需分配。
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {Object.entries(systemGroups).map(([module, items]) =>
+              items?.map((item) => (
+                <div key={item.code} className="flex items-center gap-3">
+                  <Checkbox checked disabled />
+
+                  <span className="text-sm text-muted-foreground">
+                    {item.name}
+                    <span className="ml-2 text-xs">（{module}）</span>
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
       {Object.entries(groups).map(([module, items]) => (
         <section
           key={module}

@@ -654,6 +654,18 @@ const PERMISSION_BASE = {
  */
 export type PermissionCode = keyof typeof PERMISSION_BASE;
 
+/**
+ * 当前已经实现、允许通过角色分配的权限。
+ *
+ * 注意：
+ * 1. 权限目录可以提前定义未来业务权限；
+ * 2. 只有业务功能真正实现后，才能加入此列表；
+ * 3. SYSTEM 权限由超级管理员规则控制，不加入此列表。
+ */
+export const ROLE_ASSIGNABLE_PERMISSION_CODES = [
+  "portal.admin",
+] as const satisfies readonly PermissionCode[];
+
 export type PermissionDefinition = PermissionDefinitionBase & {
   createScopes?: {
     permission: PermissionCode;

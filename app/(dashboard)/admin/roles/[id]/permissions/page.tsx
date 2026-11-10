@@ -28,6 +28,7 @@ export default async function RolePermissionsPage({
       <RolePermissionForm
         roleId={id}
         permissions={result.permissions}
+        systemPermissions={result.systemPermissions}
         assigned={result.assigned}
       />
     </div>

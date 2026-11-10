@@ -6,7 +6,10 @@ import { z } from "zod";
 
 import { DataScope } from "@/app/generated/prisma/client";
 import { requirePagePermission } from "@/lib/auth/authorization";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import {
+  PERMISSIONS,
+  ROLE_ASSIGNABLE_PERMISSION_CODES,
+} from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import type { PermissionCode } from "@/lib/auth/permissions";
 
@@ -177,9 +180,8 @@ const savePermissionsSchema = z.array(permissionItemSchema);
 /**
  * 保存角色权限配置。
  *
- * - 只允许分配 BUSINESS 且 grantable 的权限，SYSTEM 权限直接拒绝；
- * - 不支持数据范围的权限只能保存为 ALL；
- * - 事务内先删后写，删除范围限定在当前可分配权限编码内。
+ * 只能保存当前已经实现并开放分配的权限，
+ * 未加入白名单的权限编码直接拒绝。
  */
 export async function saveRolePermissionsAction(
   roleId: string,
@@ -196,22 +198,22 @@ export async function saveRolePermissionsAction(
     };
   }
 
-  const allowedCodes = Object.entries(PERMISSIONS)
-    .filter(([, item]) => item.domain === "BUSINESS" && item.grantable)
-    .map(([code]) => code);
-
   const items = parsed.data;
+  const allowedCodes =
+    ROLE_ASSIGNABLE_PERMISSION_CODES as readonly string[];
 
+  // 防止重复授权和伪造未开放的权限编码
   if (
     new Set(items.map((item) => item.code)).size !== items.length ||
     items.some((item) => !allowedCodes.includes(item.code))
   ) {
     return {
       success: false,
-      message: "包含重复或不允许分配的权限",
+      message: "包含重复或尚未开放的权限",
     };
   }
 
+  // 校验数据范围
   for (const item of items) {
     const permission = PERMISSIONS[item.code as PermissionCode];
 
@@ -236,10 +238,13 @@ export async function saveRolePermissionsAction(
   }
 
   await db.$transaction(async (tx) => {
+    // 只删除当前开放授权的权限，不影响其他权限记录
     await tx.rolePermission.deleteMany({
       where: {
         roleId,
-        permissionCode: { in: allowedCodes },
+        permissionCode: {
+          in: [...ROLE_ASSIGNABLE_PERMISSION_CODES],
+        },
       },
     });
 

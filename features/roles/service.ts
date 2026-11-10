@@ -2,7 +2,11 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/authorization";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import {
+  PERMISSIONS,
+  ROLE_ASSIGNABLE_PERMISSION_CODES,
+  SYSTEM_ROLE_CODES,
+} from "@/lib/auth/permissions";
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { PermissionCode } from "@/lib/auth/permissions";
 
@@ -385,9 +389,8 @@ export async function removeUserFromRole(roleId: string, userId: string) {
 /**
  * 角色权限配置页数据。
  *
- * - 权限名称、模块和是否支持数据范围全部来自 PERMISSIONS 权限目录；
- * - 只展示允许分配的 BUSINESS 权限，SYSTEM 权限不开放勾选；
- * - 读取已有授权时同样限定在可分配权限内。
+ * 只展示已经实现并开放授权的功能。
+ * 未来业务模块完成后，通过 ROLE_ASSIGNABLE_PERMISSION_CODES 扩展。
  */
 export async function getRolePermissionConfig(roleId: string) {
   await requirePagePermission("role.assignPermissions");
@@ -402,22 +405,39 @@ export async function getRolePermissionConfig(roleId: string) {
     },
   });
 
-  if (!role) return null;
+  if (!role) {
+    return null;
+  }
 
-  const permissions = Object.entries(PERMISSIONS)
-    .filter(([, item]) => item.domain === "BUSINESS" && item.grantable)
-    .map(([code, item]) => ({
-      code: code as PermissionCode,
+  const permissions = ROLE_ASSIGNABLE_PERMISSION_CODES.map((code) => {
+    const item = PERMISSIONS[code];
+
+    return {
+      code,
       name: item.name,
       module: item.module,
       scopeable: item.scopeable,
-    }));
+    };
+  });
+
+  // 超级管理员的 SYSTEM 权限由授权规则内置，
+  // 配置页只用于展示，不参与勾选保存
+  const systemPermissions =
+    role.code === SYSTEM_ROLE_CODES.SUPER_ADMIN
+      ? Object.entries(PERMISSIONS)
+          .filter(([, item]) => item.domain === "SYSTEM")
+          .map(([code, item]) => ({
+            code: code as PermissionCode,
+            name: item.name,
+            module: item.module,
+          }))
+      : [];
 
   const assigned = await db.rolePermission.findMany({
     where: {
       roleId,
       permissionCode: {
-        in: permissions.map((item) => item.code),
+        in: [...ROLE_ASSIGNABLE_PERMISSION_CODES],
       },
     },
     select: {
@@ -429,6 +449,7 @@ export async function getRolePermissionConfig(roleId: string) {
   return {
     role,
     permissions,
+    systemPermissions,
     assigned,
   };
 }
