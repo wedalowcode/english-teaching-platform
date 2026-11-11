@@ -6,7 +6,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { RolePermissionForm } from "@/features/roles/components/role-permission-form";
 import { getRolePermissionConfig } from "@/features/roles/service";
 
-// 权限配置需要实时读取数据库授权状态
 export const instant = false;
 
 export default async function RolePermissionsPage({
@@ -17,12 +16,10 @@ export default async function RolePermissionsPage({
   const { id } = await params;
   const result = await getRolePermissionConfig(id);
 
-  if (!result) {
-    notFound();
-  }
+  if (!result) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title="分配角色权限"
         description={`正在配置角色：${result.role.name}`}
@@ -36,12 +33,14 @@ export default async function RolePermissionsPage({
         }
       />
 
-      <RolePermissionForm
-        roleId={id}
-        permissions={result.permissions}
-        assigned={result.assigned}
-        isSuperAdmin={result.isSuperAdmin}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <RolePermissionForm
+          roleId={id}
+          permissions={result.permissions}
+          assigned={result.assigned}
+          isSuperAdmin={result.isSuperAdmin}
+        />
+      </div>
     </div>
   );
 }
