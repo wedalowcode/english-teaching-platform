@@ -10,6 +10,7 @@ type UserListParams = {
   page: number;
   pageSize: number;
   keyword: string;
+  status?: UserStatus;
 };
 
 export type UserOperationResult =
@@ -68,18 +69,22 @@ const USER_HAS_RELATIONS = {
 export async function getUserList(params: UserListParams) {
   await requirePagePermission("user.view");
 
-  const { pageSize, keyword } = params;
+  const { pageSize, keyword, status } = params;
 
-  const where: Prisma.UserWhereInput = keyword
-    ? {
-        OR: [
-          { name: { contains: keyword, mode: "insensitive" } },
-          { username: { contains: keyword, mode: "insensitive" } },
-          { email: { contains: keyword, mode: "insensitive" } },
-          { phone: { contains: keyword } },
-        ],
-      }
-    : {};
+  const where: Prisma.UserWhereInput = {};
+
+  if (keyword) {
+    where.OR = [
+      { name: { contains: keyword, mode: "insensitive" } },
+      { username: { contains: keyword, mode: "insensitive" } },
+      { email: { contains: keyword, mode: "insensitive" } },
+      { phone: { contains: keyword } },
+    ];
+  }
+
+  if (status) {
+    where.status = status;
+  }
 
   const total = await db.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));

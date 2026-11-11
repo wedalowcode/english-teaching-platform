@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requirePagePermission } from "@/lib/auth/authorization";
+import { requireActionPermission } from "@/lib/auth/authorization";
 import type { UserStatus } from "@/app/generated/prisma/client";
 import {
   createUserSchema,
@@ -27,7 +27,11 @@ export async function createUserAction(
   _prevState: CreateUserState,
   formData: FormData
 ): Promise<CreateUserState> {
-  await requirePagePermission("user.create");
+  const guard = await requireActionPermission("user.create");
+
+  if (!guard.ok) {
+    return { message: guard.message };
+  }
 
   const values = {
     name: String(formData.get("name") ?? ""),
@@ -79,7 +83,11 @@ export async function updateUserAction(
   _prevState: UpdateUserState,
   formData: FormData
 ): Promise<UpdateUserState> {
-  await requirePagePermission("user.edit");
+  const guard = await requireActionPermission("user.edit");
+
+  if (!guard.ok) {
+    return { message: guard.message };
+  }
 
   const values = {
     name: String(formData.get("name") ?? ""),
@@ -122,7 +130,11 @@ export async function resetUserPasswordAction(
   _prevState: ResetPasswordState,
   formData: FormData
 ): Promise<ResetPasswordState> {
-  await requirePagePermission("user.resetPassword");
+  const guard = await requireActionPermission("user.resetPassword");
+
+  if (!guard.ok) {
+    return { message: guard.message };
+  }
 
   const values = {
     password: String(formData.get("password") ?? ""),
@@ -161,7 +173,11 @@ export async function setUserStatusAction(
   id: string,
   status: UserStatus
 ): Promise<UserActionResult> {
-  await requirePagePermission("user.disable");
+  const guard = await requireActionPermission("user.disable");
+
+  if (!guard.ok) {
+    return { success: false, message: guard.message };
+  }
 
   if (status !== "ACTIVE" && status !== "DISABLED") {
     return {
@@ -182,7 +198,11 @@ export async function setUserStatusAction(
 export async function deleteUserAction(
   id: string
 ): Promise<UserActionResult> {
-  await requirePagePermission("user.delete");
+  const guard = await requireActionPermission("user.delete");
+
+  if (!guard.ok) {
+    return { success: false, message: guard.message };
+  }
 
   const result = await deleteUser(id);
 
@@ -197,7 +217,11 @@ export async function updateUserRolesAction(
   userId: string,
   formData: FormData
 ) {
-  await requirePagePermission("user.assignRole");
+  const guard = await requireActionPermission("user.assignRole");
+
+  if (!guard.ok) {
+    return { success: false as const, message: guard.message };
+  }
 
   const parsed = userRoleAssignmentSchema.safeParse({
     roleIds: formData.getAll("roleIds").map(String),

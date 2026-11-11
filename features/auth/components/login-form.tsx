@@ -53,7 +53,9 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    // 显式声明 post：JS 未接管表单时（尚未水合、脚本加载失败），
+    // 浏览器原生提交默认用 GET，会把用户名和密码拼进 URL 和访问日志。
+    <form method="post" onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="username">用户名</Label>
 

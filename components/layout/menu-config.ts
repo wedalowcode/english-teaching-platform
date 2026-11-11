@@ -40,14 +40,68 @@ export const adminMenus: MenuGroup[] = [
   },
 ];
 
-export function getMenuBreadcrumb(href: string): string[] {
-  for (const group of adminMenus) {
-    const item = group.items.find((menuItem) => menuItem.href === href);
+export function getPageBreadcrumb(pathname: string): string[] {
+  const segments = pathname.split("/").filter(Boolean);
 
-    if (item) {
-      return [group.title, item.title];
+  if (segments[0] !== "admin") {
+    return [];
+  }
+
+  const [, section, second, third, fourth] = segments;
+
+  if (!section) {
+    return ["后台工作台"];
+  }
+
+  if (section === "users") {
+    const base = getBaseBreadcrumb("/admin/users");
+
+    if (second === "new") {
+      return [...base, "新增用户"];
     }
+
+    if (third === "edit") {
+      return [...base, "编辑用户"];
+    }
+
+    return base;
+  }
+
+  if (section === "roles") {
+    const base = getBaseBreadcrumb("/admin/roles");
+
+    if (second === "new") {
+      return [...base, "新增角色"];
+    }
+
+    if (third === "edit") {
+      return [...base, "编辑角色"];
+    }
+
+    if (third === "users") {
+      return fourth === "add" ? [...base, "添加用户"] : [...base, "用户成员"];
+    }
+
+    if (third === "permissions") {
+      return [...base, "分配权限"];
+    }
+
+    return base;
   }
 
   return [];
+}
+
+/**
+ * 动态段（用户 ID、角色 ID）不查库，只展示到功能层级，
+ * 具体对象名称由页面标题展示。
+ */
+function getBaseBreadcrumb(href: string): string[] {
+  const group = adminMenus.find((menuGroup) =>
+    menuGroup.items.some((item) => item.href === href)
+  );
+
+  const item = group?.items.find((menuItem) => menuItem.href === href);
+
+  return group && item ? [group.title, item.title] : [];
 }

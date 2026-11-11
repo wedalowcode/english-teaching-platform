@@ -1,8 +1,12 @@
 import { z } from "zod";
 
+import { pageSizeSchema } from "@/lib/pagination";
+
 export const userListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).catch(1),
+  pageSize: pageSizeSchema,
   keyword: z.string().trim().max(50).catch(""),
+  status: z.enum(["ACTIVE", "DISABLED"]).optional().catch(undefined),
 });
 
 const nameField = z

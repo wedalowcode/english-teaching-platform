@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -15,7 +14,6 @@ export default async function NewRolePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[...getMenuBreadcrumb("/admin/roles"), "新增角色"]}
         title="新增角色"
         description="创建自定义角色，后续可以为角色分配用户和权限。"
         actions={

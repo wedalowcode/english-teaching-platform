@@ -20,12 +20,20 @@ type RoleAccountActionsProps = {
   roleId: string;
   isActive: boolean;
   isSystem: boolean;
+  canEdit: boolean;
+  canDisable: boolean;
+  canAssignUser: boolean;
+  canAssignPermissions: boolean;
 };
 
 export function RoleAccountActions({
   roleId,
   isActive,
   isSystem,
+  canEdit,
+  canDisable,
+  canAssignUser,
+  canAssignPermissions,
 }: RoleAccountActionsProps) {
   const [pending, startTransition] = useTransition();
 
@@ -47,6 +55,11 @@ export function RoleAccountActions({
     });
   }
 
+  // 一个操作都没有权限时，整个「更多」入口也不展示
+  if (!canEdit && !canDisable && !canAssignUser && !canAssignPermissions) {
+    return null;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
@@ -55,34 +68,50 @@ export function RoleAccountActions({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          render={<Link href={`/admin/roles/${roleId}/edit`} />}
-        >
-          编辑角色
-        </DropdownMenuItem>
+        {canEdit && (
+          <>
+            <DropdownMenuItem
+              render={<Link href={`/admin/roles/${roleId}/edit`} />}
+            >
+              编辑角色
+            </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+            {(canDisable || canAssignUser || canAssignPermissions) && (
+              <DropdownMenuSeparator />
+            )}
+          </>
+        )}
 
-        <DropdownMenuItem
-          disabled={pending || (isSystem && isActive)}
-          onClick={handleStatusChange}
-        >
-          {pending ? "处理中..." : isActive ? "停用角色" : "启用角色"}
-        </DropdownMenuItem>
+        {canDisable && (
+          <>
+            <DropdownMenuItem
+              disabled={pending || (isSystem && isActive)}
+              onClick={handleStatusChange}
+            >
+              {pending ? "处理中..." : isActive ? "停用角色" : "启用角色"}
+            </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+            {(canAssignUser || canAssignPermissions) && (
+              <DropdownMenuSeparator />
+            )}
+          </>
+        )}
 
-        <DropdownMenuItem
-          render={<Link href={`/admin/roles/${roleId}/users`} />}
-        >
-          分配用户
-        </DropdownMenuItem>
+        {canAssignUser && (
+          <DropdownMenuItem
+            render={<Link href={`/admin/roles/${roleId}/users`} />}
+          >
+            分配用户
+          </DropdownMenuItem>
+        )}
 
-        <DropdownMenuItem
-          render={<Link href={`/admin/roles/${roleId}/permissions`} />}
-        >
-          分配权限
-        </DropdownMenuItem>
+        {canAssignPermissions && (
+          <DropdownMenuItem
+            render={<Link href={`/admin/roles/${roleId}/permissions`} />}
+          >
+            分配权限
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

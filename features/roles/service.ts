@@ -22,26 +22,34 @@ type RoleListParams = RoleListQuery & {
 export async function getRoleList(params: RoleListParams) {
   await requirePagePermission("role.view");
 
-  const { pageSize, keyword } = params;
+  const { pageSize, keyword, type, status } = params;
 
-  const where: Prisma.RoleWhereInput = keyword
-    ? {
-        OR: [
-          {
-            name: {
-              contains: keyword,
-              mode: "insensitive",
-            },
-          },
-          {
-            code: {
-              contains: keyword,
-              mode: "insensitive",
-            },
-          },
-        ],
-      }
-    : {};
+  const where: Prisma.RoleWhereInput = {};
+
+  if (keyword) {
+    where.OR = [
+      {
+        name: {
+          contains: keyword,
+          mode: "insensitive",
+        },
+      },
+      {
+        code: {
+          contains: keyword,
+          mode: "insensitive",
+        },
+      },
+    ];
+  }
+
+  if (type) {
+    where.isSystem = type === "SYSTEM";
+  }
+
+  if (status) {
+    where.isActive = status === "ACTIVE";
+  }
 
   const total = await db.role.count({ where });
 

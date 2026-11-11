@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { buttonVariants } from "@/components/ui/button";
 import { getCurrentActor } from "@/lib/auth/current-actor";
 import { getPortalDestination } from "@/lib/auth/portal-routing";
 
@@ -31,10 +32,7 @@ export default async function ForbiddenPage() {
         </p>
 
         {destination ? (
-          <Link
-            href={destination}
-            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-          >
+          <Link href={destination} className={buttonVariants()}>
             返回可访问工作台
           </Link>
         ) : (

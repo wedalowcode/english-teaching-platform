@@ -1,7 +1,6 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -13,7 +12,6 @@ type Props = {
 };
 
 export function SignOutButton({ showLabel = false }: Props) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleSignOut() {
@@ -27,8 +25,12 @@ export function SignOutButton({ showLabel = false }: Props) {
         return;
       }
 
-      router.replace("/login");
-      router.refresh();
+      // 整页跳转而不是 router.replace：
+      // 彻底丢弃客户端路由缓存，避免按返回键看到受保护页面的旧内容。
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/login");
+    } catch {
+      toast.error("退出登录失败，请检查网络后重试");
     } finally {
       setLoading(false);
     }

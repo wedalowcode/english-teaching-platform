@@ -1,12 +1,18 @@
 import { z } from "zod";
 
+import { pageSizeSchema } from "@/lib/pagination";
+
 export const roleListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).catch(1),
+  pageSize: pageSizeSchema,
   keyword: z.string().trim().max(50).catch(""),
+  type: z.enum(["SYSTEM", "CUSTOM"]).optional().catch(undefined),
+  status: z.enum(["ACTIVE", "DISABLED"]).optional().catch(undefined),
 });
 
 export const roleUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).catch(1),
+  pageSize: pageSizeSchema,
   keyword: z.string().trim().max(50).catch(""),
 });
 

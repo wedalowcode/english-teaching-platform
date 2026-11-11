@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { UserEdit, UserEditSkeleton } from "@/features/users/components/user-edit";
@@ -22,7 +21,6 @@ export default async function EditUserPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[...getMenuBreadcrumb("/admin/users"), "编辑用户"]}
         title="编辑用户"
         description="修改用户账号信息。"
         actions={

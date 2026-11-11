@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { DataScope } from "@/app/generated/prisma/client";
-import { requirePagePermission } from "@/lib/auth/authorization";
+import { requireActionPermission } from "@/lib/auth/authorization";
 import {
   PERMISSIONS,
   ROLE_ASSIGNABLE_PERMISSION_CODES,
@@ -36,7 +36,11 @@ export async function createRoleAction(
   _prevState: RoleFormState,
   formData: FormData
 ): Promise<RoleFormState> {
-  await requirePagePermission("role.create");
+  const guard = await requireActionPermission("role.create");
+
+  if (!guard.ok) {
+    return { message: guard.message };
+  }
 
   const values = {
     code: String(formData.get("code") ?? ""),
@@ -74,7 +78,11 @@ export async function updateRoleAction(
   _prevState: RoleFormState,
   formData: FormData
 ): Promise<RoleFormState> {
-  await requirePagePermission("role.edit");
+  const guard = await requireActionPermission("role.edit");
+
+  if (!guard.ok) {
+    return { message: guard.message };
+  }
 
   const values = {
     name: String(formData.get("name") ?? ""),
@@ -108,7 +116,11 @@ export async function setRoleStatusAction(
   id: string,
   isActive: boolean
 ): Promise<RoleActionResult> {
-  await requirePagePermission("role.disable");
+  const guard = await requireActionPermission("role.disable");
+
+  if (!guard.ok) {
+    return { success: false, message: guard.message };
+  }
 
   if (typeof isActive !== "boolean") {
     return {
@@ -130,7 +142,11 @@ export async function addUserToRoleAction(
   roleId: string,
   userId: string
 ): Promise<RoleActionResult> {
-  await requirePagePermission("role.assignUser");
+  const guard = await requireActionPermission("role.assignUser");
+
+  if (!guard.ok) {
+    return { success: false, message: guard.message };
+  }
 
   if (!roleId || !userId) {
     return {
@@ -152,7 +168,11 @@ export async function removeUserFromRoleAction(
   roleId: string,
   userId: string
 ): Promise<RoleActionResult> {
-  await requirePagePermission("role.assignUser");
+  const guard = await requireActionPermission("role.assignUser");
+
+  if (!guard.ok) {
+    return { success: false, message: guard.message };
+  }
 
   if (!roleId || !userId) {
     return {
@@ -187,7 +207,11 @@ export async function saveRolePermissionsAction(
   roleId: string,
   values: unknown
 ): Promise<RoleActionResult> {
-  await requirePagePermission("role.assignPermissions");
+  const guard = await requireActionPermission("role.assignPermissions");
+
+  if (!guard.ok) {
+    return { success: false, message: guard.message };
+  }
 
   const parsed = savePermissionsSchema.safeParse(values);
 

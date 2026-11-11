@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { buttonVariants } from "@/components/ui/button";
 
 import { requirePagePermission } from "@/lib/auth/authorization";
@@ -34,11 +33,6 @@ export default async function RoleUsersPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[
-          ...getMenuBreadcrumb("/admin/roles"),
-          role.name,
-          "用户管理",
-        ]}
         title={`${role.name} · 用户管理`}
         description="管理当前角色下的用户成员。"
         actions={

@@ -1,9 +1,14 @@
+import Link from "next/link";
+
 import { PageHeader } from "@/components/shared/page-header";
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
+import { buttonVariants } from "@/components/ui/button";
 
 import { RoleList } from "@/features/roles/components/role-list";
 
-import { requirePagePermission } from "@/lib/auth/authorization";
+import {
+  evaluatePermission,
+  requirePagePermission,
+} from "@/lib/auth/authorization";
 
 // 会话校验需要阻塞渲染
 export const instant = false;
@@ -13,14 +18,22 @@ type Props = {
 };
 
 export default async function RolesPage({ searchParams }: Props) {
-  await requirePagePermission("role.view");
+  const actor = await requirePagePermission("role.view");
+
+  const canCreate = evaluatePermission("role.create", actor).allowed;
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <PageHeader
-        breadcrumb={getMenuBreadcrumb("/admin/roles")}
         title="角色管理"
         description="管理系统角色及其关联用户。"
+        actions={
+          canCreate ? (
+            <Link href="/admin/roles/new" className={buttonVariants()}>
+              新增角色
+            </Link>
+          ) : undefined
+        }
       />
 
       <RoleList searchParams={searchParams} />

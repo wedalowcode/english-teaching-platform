@@ -3,12 +3,14 @@ import { Suspense } from "react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import {
   UserList,
   UserListSkeleton,
 } from "@/features/users/components/user-list";
-import { requirePagePermission } from "@/lib/auth/authorization";
+import {
+  evaluatePermission,
+  requirePagePermission,
+} from "@/lib/auth/authorization";
 
 // 会话校验需要阻塞渲染，先确认身份再输出页面数据
 export const instant = false;
@@ -18,18 +20,21 @@ type Props = {
 };
 
 export default async function UsersPage({ searchParams }: Props) {
-  await requirePagePermission("user.view");
+  const actor = await requirePagePermission("user.view");
+
+  const canCreate = evaluatePermission("user.create", actor).allowed;
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <PageHeader
-        breadcrumb={getMenuBreadcrumb("/admin/users")}
         title="用户管理"
         description="管理系统用户账号、状态及登录信息。"
         actions={
-          <Link href="/admin/users/new" className={buttonVariants()}>
-            新增用户
-          </Link>
+          canCreate ? (
+            <Link href="/admin/users/new" className={buttonVariants()}>
+              新增用户
+            </Link>
+          ) : undefined
         }
       />
 

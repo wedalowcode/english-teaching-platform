@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -30,7 +29,6 @@ export default async function EditRolePage({ params }: Props) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[...getMenuBreadcrumb("/admin/roles"), "编辑角色"]}
         title="编辑角色"
         description="修改角色名称和说明。"
         actions={

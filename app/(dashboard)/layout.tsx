@@ -45,10 +45,12 @@ export default async function DashboardLayout({
         <AdminSidebar menus={menus} />
       </Suspense>
 
-      <SidebarInset className="min-w-0">
+      <SidebarInset className="min-w-0 md:h-svh md:overflow-hidden">
         <AdminTopbar user={user} />
 
-        <div className="min-w-0 flex-1 p-6">{children}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

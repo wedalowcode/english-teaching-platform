@@ -24,12 +24,24 @@ export type CurrentActor = {
   }[];
 };
 
-export type PermissionDecision = {
-  allowed: boolean;
-  actor: CurrentActor | null;
-  scopes: DataScope[];
-  reason?: "UNAUTHENTICATED" | "FORBIDDEN";
-};
+export type PermissionDenialCode = "UNAUTHENTICATED" | "FORBIDDEN";
+
+/**
+ * 权限判断结果使用判别联合：
+ * allowed 为 true 时一定有 actor 和 scopes；
+ * allowed 为 false 时一定有拒绝原因 code。
+ */
+export type PermissionDecision =
+  | {
+      allowed: true;
+      actor: CurrentActor;
+      scopes: DataScope[];
+    }
+  | {
+      allowed: false;
+      code: PermissionDenialCode;
+      actor: CurrentActor | null;
+    };
 
 /**
  * 纯权限判断：基于已经解析出的当前用户上下文计算是否放行。
@@ -49,9 +61,8 @@ export function evaluatePermission(
   if (!permission) {
     return {
       allowed: false,
+      code: "FORBIDDEN",
       actor,
-      scopes: [],
-      reason: "FORBIDDEN",
     };
   }
 
@@ -75,9 +86,8 @@ export function evaluatePermission(
   if (scopes.length === 0) {
     return {
       allowed: false,
+      code: "FORBIDDEN",
       actor,
-      scopes: [],
-      reason: "FORBIDDEN",
     };
   }
 
@@ -99,9 +109,8 @@ export async function checkPermission(
   if (!actor) {
     return {
       allowed: false,
+      code: "UNAUTHENTICATED",
       actor: null,
-      scopes: [],
-      reason: "UNAUTHENTICATED",
     };
   }
 
@@ -109,22 +118,52 @@ export async function checkPermission(
 }
 
 /**
- * 页面和服务端操作的权限守卫：
- * 未登录跳转登录页，无权限统一跳转 403 页面。
+ * 页面权限守卫：未登录跳转登录页，无权限统一跳转 403 页面。
  *
- * 每个页面、每个 Service/Action 都声明自己需要的权限编码，
- * 不再使用笼统的管理员守卫。
+ * 只能用于页面和布局，不能用于 Server Action 或 Service：
+ * 这里通过 redirect 抛异常改变导航，在 Action 中会中断返回值。
+ *
+ * 每个页面都声明自己需要的权限编码，不再使用笼统的管理员守卫。
  */
-export async function requirePagePermission(permissionCode: PermissionCode) {
+export async function requirePagePermission(
+  permissionCode: PermissionCode
+): Promise<CurrentActor> {
   const decision = await checkPermission(permissionCode);
 
-  if (decision.reason === "UNAUTHENTICATED") {
-    redirect("/login");
-  }
-
-  if (!decision.allowed || !decision.actor) {
-    redirect("/forbidden");
+  if (!decision.allowed) {
+    redirect(decision.code === "UNAUTHENTICATED" ? "/login" : "/forbidden");
   }
 
   return decision.actor;
+}
+
+export type ActionPermissionResult =
+  | { ok: true; actor: CurrentActor; scopes: DataScope[] }
+  | { ok: false; message: string };
+
+/**
+ * Server Action / Service 的权限守卫：不跳转，返回结构化失败结果。
+ *
+ * 调用方在参数校验之前先判断 ok，未通过时直接返回 message。
+ */
+export async function requireActionPermission(
+  permissionCode: PermissionCode
+): Promise<ActionPermissionResult> {
+  const decision = await checkPermission(permissionCode);
+
+  if (!decision.allowed) {
+    return {
+      ok: false,
+      message:
+        decision.code === "UNAUTHENTICATED"
+          ? "登录状态已失效，请重新登录"
+          : "当前账号没有执行该操作的权限",
+    };
+  }
+
+  return {
+    ok: true,
+    actor: decision.actor,
+    scopes: decision.scopes,
+  };
 }

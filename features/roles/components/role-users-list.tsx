@@ -1,4 +1,7 @@
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import Form from "next/form";
+
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -15,8 +18,6 @@ import { ListPagination } from "@/components/shared/list-pagination";
 import { roleUsersQuerySchema } from "@/features/roles/schemas";
 import { getRoleUsers } from "@/features/roles/service";
 import { RoleUserAction } from "./role-user-action";
-
-const PAGE_SIZE = 10;
 
 type RoleUsersListProps = {
   roleId: string;
@@ -35,7 +36,7 @@ export async function RoleUsersList({
   const result = await getRoleUsers({
     roleId,
     page: query.page,
-    pageSize: PAGE_SIZE,
+    pageSize: query.pageSize,
     keyword: query.keyword,
   });
 
@@ -47,29 +48,44 @@ export async function RoleUsersList({
 
   return (
     <div className="space-y-4">
-      <form className="flex gap-2">
+      {/* next/form 走客户端导航，避免原生提交整页刷新导致侧边栏闪一下 */}
+      <Form
+        action={`/admin/roles/${roleId}/users`}
+        className="flex gap-2"
+      >
         <Input
+          // URL 变化时强制重挂载，否则非受控输入框的 defaultValue 不会更新
+          key={query.keyword}
           name="keyword"
           defaultValue={query.keyword}
           placeholder="搜索姓名、用户名或邮箱"
           className="max-w-xs"
         />
         <Button type="submit">搜索</Button>
-      </form>
+
+        <Link
+          href={`/admin/roles/${roleId}/users`}
+          className={buttonVariants({ variant: "outline" })}
+        >
+          重置
+        </Link>
+      </Form>
 
       <p className="text-sm text-muted-foreground">
         当前角色共 {total} 位用户
       </p>
 
       <div className="rounded-md border bg-card">
-        <Table>
+        <Table className="min-w-[760px]">
           <TableHeader>
             <TableRow>
               <TableHead>姓名</TableHead>
               <TableHead>用户名</TableHead>
               <TableHead>邮箱</TableHead>
               <TableHead>手机号</TableHead>
-              <TableHead>操作</TableHead>
+              <TableHead className="sticky right-0 z-20 border-l bg-card">
+                操作
+              </TableHead>
             </TableRow>
           </TableHeader>
 
@@ -80,7 +96,7 @@ export async function RoleUsersList({
                 <TableCell>{user.username ?? "-"}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.phone ?? "-"}</TableCell>
-                <TableCell>
+                <TableCell className="sticky right-0 z-10 border-l bg-card">
                   <RoleUserAction
                     roleId={roleId}
                     userId={user.id}
@@ -108,6 +124,7 @@ export async function RoleUsersList({
         page={page}
         totalPages={totalPages}
         basePath={`/admin/roles/${roleId}/users`}
+        pageSize={query.pageSize}
         params={{ keyword: query.keyword }}
       />
     </div>

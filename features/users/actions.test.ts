@@ -13,8 +13,10 @@ const { requireUserAdmin, revalidatePath, setUserStatus, deleteUser } =
     deleteUser: vi.fn(),
   }));
 
+const ALLOWED = { ok: true, actor: {}, scopes: [] };
+
 vi.mock("@/lib/auth/authorization", () => ({
-  requirePagePermission: requireUserAdmin,
+  requireActionPermission: requireUserAdmin,
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
@@ -29,7 +31,7 @@ vi.mock("./service", () => ({
 describe("setUserStatusAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requireUserAdmin.mockResolvedValue(undefined);
+    requireUserAdmin.mockResolvedValue(ALLOWED);
     setUserStatus.mockResolvedValue({ success: true });
   });
 
@@ -79,13 +81,18 @@ describe("setUserStatusAction", () => {
     });
   });
 
-  it("非管理员调用时应被拒绝", async () => {
-    requireUserAdmin.mockRejectedValue(new Error("无权访问"));
+  it("没有权限时返回失败结果，不抛异常也不执行 Service", async () => {
+    requireUserAdmin.mockResolvedValue({
+      ok: false,
+      message: "当前账号没有执行该操作的权限",
+    });
 
-    await expect(
-      setUserStatusAction("user-1", "DISABLED")
-    ).rejects.toThrow("无权访问");
+    const result = await setUserStatusAction("user-1", "DISABLED");
 
+    expect(result).toEqual({
+      success: false,
+      message: "当前账号没有执行该操作的权限",
+    });
     expect(setUserStatus).not.toHaveBeenCalled();
   });
 });
@@ -93,7 +100,7 @@ describe("setUserStatusAction", () => {
 describe("deleteUserAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requireUserAdmin.mockResolvedValue(undefined);
+    requireUserAdmin.mockResolvedValue(ALLOWED);
   });
 
   it("删除成功时刷新列表并返回成功", async () => {

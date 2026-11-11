@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { getMenuBreadcrumb } from "@/components/layout/menu-config";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { UserCreateForm } from "@/features/users/components/user-create-form";
@@ -15,7 +14,6 @@ export default async function NewUserPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[...getMenuBreadcrumb("/admin/users"), "新增用户"]}
         title="新增用户"
         description="创建新的系统用户账号并分配登录信息。"
         actions={

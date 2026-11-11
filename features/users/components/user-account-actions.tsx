@@ -43,6 +43,10 @@ type UserAccountActionsProps = {
   status: UserStatus;
   roles: RoleOption[];
   assignedRoleIds: string[];
+  canResetPassword: boolean;
+  canAssignRole: boolean;
+  canDisable: boolean;
+  canDelete: boolean;
 };
 
 export function UserAccountActions({
@@ -51,6 +55,10 @@ export function UserAccountActions({
   status,
   roles,
   assignedRoleIds,
+  canResetPassword,
+  canAssignRole,
+  canDisable,
+  canDelete,
 }: UserAccountActionsProps) {
   const isActive = status === "ACTIVE";
   const nextStatus: UserStatus = isActive ? "DISABLED" : "ACTIVE";
@@ -92,6 +100,11 @@ export function UserAccountActions({
     });
   }
 
+  // 一个操作都没有权限时，整个「更多」入口也不展示
+  if (!canResetPassword && !canAssignRole && !canDisable && !canDelete) {
+    return null;
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -101,81 +114,97 @@ export function UserAccountActions({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setResetOpen(true)}>
-            重置密码
-          </DropdownMenuItem>
+          {canResetPassword && (
+            <DropdownMenuItem onClick={() => setResetOpen(true)}>
+              重置密码
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuItem onClick={() => setRoleOpen(true)}>
-            分配角色
-          </DropdownMenuItem>
+          {canAssignRole && (
+            <DropdownMenuItem onClick={() => setRoleOpen(true)}>
+              分配角色
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuSeparator />
+          {(canResetPassword || canAssignRole) && canDisable && (
+            <DropdownMenuSeparator />
+          )}
 
-          <DropdownMenuItem onClick={handleStatusChange}>
-            {isActive ? "停用账号" : "启用账号"}
-          </DropdownMenuItem>
+          {canDisable && (
+            <DropdownMenuItem onClick={handleStatusChange}>
+              {isActive ? "停用账号" : "启用账号"}
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuSeparator />
+          {canDisable && canDelete && <DropdownMenuSeparator />}
 
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            删除用户
-          </DropdownMenuItem>
+          {canDelete && (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              删除用户
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <UserResetPasswordDialog
-        userId={userId}
-        username={username}
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        hideTrigger
-      />
+      {canResetPassword && (
+        <UserResetPasswordDialog
+          userId={userId}
+          username={username}
+          open={resetOpen}
+          onOpenChange={setResetOpen}
+          hideTrigger
+        />
+      )}
 
-      <UserRoleAssignmentSheet
-        open={roleOpen}
-        onOpenChange={setRoleOpen}
-        userId={userId}
-        username={username}
-        roles={roles}
-        assignedRoleIds={assignedRoleIds}
-      />
+      {canAssignRole && (
+        <UserRoleAssignmentSheet
+          open={roleOpen}
+          onOpenChange={setRoleOpen}
+          userId={userId}
+          username={username}
+          roles={roles}
+          assignedRoleIds={assignedRoleIds}
+        />
+      )}
 
-      <AlertDialog
-        open={deleteOpen}
-        onOpenChange={(next) => {
-          if (!deletePending) {
-            setDeleteOpen(next);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除用户？</AlertDialogTitle>
+      {canDelete && (
+        <AlertDialog
+          open={deleteOpen}
+          onOpenChange={(next) => {
+            if (!deletePending) {
+              setDeleteOpen(next);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除用户？</AlertDialogTitle>
 
-            <AlertDialogDescription>
-              即将永久删除用户「{username}」，该用户名会同时被释放。
-              删除后无法恢复，请确认该用户没有需要保留的业务数据。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+              <AlertDialogDescription>
+                即将永久删除用户「{username}」，该用户名会同时被释放。
+                删除后无法恢复，请确认该用户没有需要保留的业务数据。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePending}>
-              取消
-            </AlertDialogCancel>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletePending}>
+                取消
+              </AlertDialogCancel>
 
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deletePending}
-            >
-              {deletePending ? "正在删除..." : "确认删除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deletePending}
+              >
+                {deletePending ? "正在删除..." : "确认删除"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }

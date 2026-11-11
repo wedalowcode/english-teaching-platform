@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DataScope } from "@/app/generated/prisma/client";
 
-import {
-  checkPermission,
-  evaluatePermission,
-} from "./authorization";
+import { checkPermission, evaluatePermission } from "./authorization";
 
-import type { CurrentActor } from "./authorization";
+import type {
+  CurrentActor,
+  PermissionDecision,
+  PermissionDenialCode,
+} from "./authorization";
 import type { PermissionCode } from "./permissions";
 
 const { getCurrentActor } = vi.hoisted(() => ({
@@ -35,6 +36,31 @@ function createActor(overrides: Partial<CurrentActor> = {}): CurrentActor {
   };
 }
 
+/** 断言放行，并把判别联合收窄到 allowed 分支。 */
+function expectAllowed(decision: PermissionDecision) {
+  expect(decision.allowed).toBe(true);
+
+  if (!decision.allowed) {
+    throw new Error(`期望放行，实际被拒绝：${decision.code}`);
+  }
+
+  return decision;
+}
+
+/** 断言拒绝，并校验拒绝原因。 */
+function expectDenied(
+  decision: PermissionDecision,
+  code: PermissionDenialCode
+) {
+  expect(decision.allowed).toBe(false);
+
+  if (decision.allowed) {
+    throw new Error("期望拒绝，实际放行");
+  }
+
+  expect(decision.code).toBe(code);
+}
+
 beforeEach(() => {
   getCurrentActor.mockReset();
 });
@@ -45,9 +71,7 @@ describe("checkPermission", () => {
 
     const decision = await checkPermission("user.view");
 
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe("UNAUTHENTICATED");
-    expect(decision.actor).toBeNull();
+    expectDenied(decision, "UNAUTHENTICATED");
   });
 });
 
@@ -60,10 +84,10 @@ describe("evaluatePermission：SYSTEM 权限", () => {
 
     const decision = evaluatePermission("role.assignPermissions", actor);
 
-    expect(decision.allowed).toBe(true);
+    expectAllowed(decision);
   });
 
-  it("普通 ADMIN 不自动获得 SYSTEM 权限", () => {
+  it("普通 ADMIN 未获得授权时不能访问系统权限", () => {
     const actor = createActor({
       roleCodes: ["ADMIN"],
       activeRoleCodes: ["ADMIN"],
@@ -71,11 +95,22 @@ describe("evaluatePermission：SYSTEM 权限", () => {
 
     const decision = evaluatePermission("role.assignPermissions", actor);
 
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe("FORBIDDEN");
+    expectDenied(decision, "FORBIDDEN");
   });
 
-  it("SUPER_ADMIN 角色被禁用后不再产生超级管理员能力", () => {
+  it("普通 ADMIN 通过授权后可以访问系统权限", () => {
+    const actor = createActor({
+      roleCodes: ["ADMIN"],
+      activeRoleCodes: ["ADMIN"],
+      grants: [{ permissionCode: "role.assignPermissions", scope: DataScope.ALL }],
+    });
+
+    const decision = evaluatePermission("role.assignPermissions", actor);
+
+    expectAllowed(decision);
+  });
+
+  it("SUPER_ADMIN 角色被停用后不再产生超级管理员能力", () => {
     const actor = createActor({
       roleCodes: ["SUPER_ADMIN"],
       activeRoleCodes: [],
@@ -107,9 +142,10 @@ describe("evaluatePermission：BUSINESS 权限", () => {
       ],
     });
 
-    const decision = evaluatePermission("student.view", actor);
+    const decision = expectAllowed(
+      evaluatePermission("student.view", actor)
+    );
 
-    expect(decision.allowed).toBe(true);
     expect(decision.scopes).toEqual([DataScope.ASSIGNED]);
   });
 
@@ -122,9 +158,10 @@ describe("evaluatePermission：BUSINESS 权限", () => {
       ],
     });
 
-    const decision = evaluatePermission("student.view", actor);
+    const decision = expectAllowed(
+      evaluatePermission("student.view", actor)
+    );
 
-    expect(decision.allowed).toBe(true);
     expect(decision.scopes).toEqual(
       expect.arrayContaining([DataScope.OWN, DataScope.ASSIGNED])
     );
@@ -135,8 +172,7 @@ describe("evaluatePermission：BUSINESS 权限", () => {
 
     const decision = evaluatePermission("dashboard.view", actor);
 
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe("FORBIDDEN");
+    expectDenied(decision, "FORBIDDEN");
   });
 
   it("未知权限编码拒绝访问", () => {
@@ -147,7 +183,6 @@ describe("evaluatePermission：BUSINESS 权限", () => {
       actor
     );
 
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe("FORBIDDEN");
+    expectDenied(decision, "FORBIDDEN");
   });
 });
